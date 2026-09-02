@@ -1,0 +1,995 @@
+openapi: 3.0.3
+info:
+  title: Projeto SOPHIIA API
+  description: |
+    API REST do Projeto SOPHIIA — plataforma institucional de capacitação,
+    documentação e certificação operacional (videoaulas com HLS adaptativo,
+    trilhas de curso versionadas, progresso consolidado e certificados com
+    validação pública). Monólito modular Go com workers assíncronos via
+    RabbitMQ. Todo endpoint autenticado espera um access token (JWT local
+    RSA ou OIDC emitido pelo Keycloak) como Bearer; o backend valida
+    localmente contra JWKS em cache (nunca uma chamada por requisição ao
+    Keycloak — ver §29 do documento de arquitetura). O grupo `/sophiia/**`
+    e a validação pública ficam atrás da feature flag `module_sophiia_enabled`.
+
+    Toda resposta usa o mesmo envelope:
+    `{"data": <payload|null>, "error": {"code","message"}|null, "meta": {...}|omitido}`.
+    Erros nunca incluem stack trace ou outro detalhe interno.
+
+    **Idempotência**: qualquer endpoint de escrita (POST/PUT/PATCH) aceita
+    opcionalmente o header `Idempotency-Key` (ver
+    `#/components/parameters/IdempotencyKey`). Reenviar a mesma requisição
+    (mesmo método, caminho e corpo) com a mesma chave nunca executa o
+    handler duas vezes — a segunda chamada em diante recebe de volta a
+    resposta já produzida pela primeira (`Idempotent-Replay: true` no
+    header da resposta), em vez de criar um segundo job/efeito colateral.
+    Reusar a mesma chave com um corpo diferente é rejeitado com 409
+    (`IDEMPOTENCY_KEY_REUSED`); uma segunda chamada enquanto a primeira
+    ainda está em andamento recebe 409 (`IDEMPOTENCY_KEY_IN_PROGRESS`). Ver
+    ADR [002](adr/002-enterprise-resilience-and-governance.md).
+
+    **Resiliência e disponibilidade condicional**: chamadas que dependem
+    de um provedor externo podem retornar 503
+    por dois motivos distintos, diferenciados pelo `error.code`:
+    `CIRCUIT_OPEN` (o circuit breaker interno detectou falhas consecutivas
+    e está poupando o provedor — tentativas vão voltar a funcionar
+    sozinhas depois de um curto intervalo) ou `FEATURE_DISABLED` (um
+    administrador desligou o recurso via feature flag — ver
+    `/api/v1/admin/feature-flags`, não se resolve sozinho).
+  version: "1.1.0"
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8000
+    description: Desenvolvimento local (docker compose)
+  - url: /
+    description: Mesma origem (produção, atrás de um reverse proxy)
+
+tags:
+  - name: system
+    description: Health, readiness e métricas — sem autenticação.
+  - name: auth
+    description: >
+      Login local por usuário/senha — um caminho ADICIONAL ao Keycloak,
+      nunca um substituto (ver ADR
+      003-local-auth-rsa-hardening.md). Sem autenticação prévia, por
+      definição.
+  - name: users
+    description: O chamador autenticado e o diretório de usuários.
+  - name: integrations
+    description: Status de cada integração externa configurada.
+  - name: websocket
+    description: Emissão de ticket para notificações em tempo real.
+  - name: admin
+    description: "Operações administrativas restritas ao papel sophiia-admin, ex.: feature flags."
+paths:
+  /health:
+    get:
+      tags: [system]
+      summary: Liveness probe
+      operationId: getHealth
+      description: Indica que o processo está de pé. Nunca verifica dependências externas.
+      security: []
+      responses:
+        "200":
+          description: O processo está vivo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Envelope"
+              example:
+                data: { status: "ok" }
+                error: null
+
+  /ready:
+    get:
+      tags: [system]
+      summary: Readiness probe
+      operationId: getReady
+      description: Verifica a conectividade com PostgreSQL e RabbitMQ.
+      security: []
+      responses:
+        "200":
+          description: Todas as dependências estão alcançáveis.
+          content:
+            application/json:
+              example:
+                data: { postgres: "ok", rabbitmq: "ok" }
+                error: null
+        "503":
+          description: Pelo menos uma dependência está indisponível.
+          content:
+            application/json:
+              example:
+                data: { postgres: "ok", rabbitmq: "unavailable" }
+                error: null
+
+  /metrics:
+    get:
+      tags: [system]
+      summary: Métricas Prometheus
+      operationId: getMetrics
+      security: []
+      responses:
+        "200":
+          description: Formato de exposição em texto do Prometheus.
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: Login local por usuário/senha
+      operationId: localLogin
+      security: []
+      description: >
+        Rota pública — o chamador ainda não está autenticado. Responde 404
+        se LOCAL_AUTH_ENABLED estiver desligado no backend. O token
+        emitido é assinado RS256 com uma chave RSA própria deste
+        subsistema (nunca compartilhada com o Keycloak — ver ADR
+        003-local-auth-rsa-hardening.md) e pode ser usado como Bearer nos
+        mesmos endpoints autenticados que aceitam um token do Keycloak.
+
+
+        Toda falha (usuário inexistente, conta só-Keycloak, conta
+        inativa, conta temporariamente bloqueada por excesso de
+        tentativas, ou senha errada) retorna exatamente a mesma resposta
+        401 genérica — nunca dá para descobrir, por tentativa e erro, qual
+        delas ocorreu. Uma conta é bloqueada por 15 minutos depois de 5
+        tentativas seguidas de senha errada.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+            example:
+              username: admin
+              password: Admin123!
+      responses:
+        "200":
+          description: Credenciais válidas — token emitido.
+          headers:
+            Cache-Control:
+              schema: { type: string, example: "no-store" }
+              description: O corpo carrega um bearer token; nunca deve ser cacheado.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          access_token: { type: string }
+                          token_type: { type: string, example: "Bearer" }
+                          expires_at: { type: string, format: date-time }
+                          user:
+                            type: object
+                            properties:
+                              id: { type: string, format: uuid }
+                              username: { type: string }
+                              email: { type: string, format: email }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          description: Login local está desligado (LOCAL_AUTH_ENABLED=false).
+          content:
+            application/json:
+              example:
+                data: null
+                error: { code: "NOT_FOUND", message: "local login is not enabled" }
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /api/v1/me:
+    get:
+      tags: [users]
+      summary: Obtém o usuário autenticado atual
+      operationId: getCurrentUser
+      description: >
+        Faz upsert da linha de usuário do chamador a partir do token
+        verificado a cada chamada (criando-a no primeiro acesso) e a
+        retorna.
+      responses:
+        "200":
+          description: O usuário atual.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/users:
+    get:
+      tags: [users]
+      summary: Lista usuários
+      operationId: listUsers
+      security:
+        - bearerAuth: [users:read]
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Uma página de usuários.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/User"
+                      meta:
+                        $ref: "#/components/schemas/PaginationMeta"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/users/{id}:
+    get:
+      tags: [users]
+      summary: Obtém um usuário pelo id
+      operationId: getUser
+      security:
+        - bearerAuth: [users:read]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: O usuário.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/integrations:
+    get:
+      tags: [integrations]
+      summary: Lista todas as integrações configuradas
+      operationId: listIntegrations
+      responses:
+        "200":
+          description: Todas as integrações.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/Integration"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/v1/integrations/{id}/status:
+    get:
+      tags: [integrations]
+      summary: Obtém o status atual de uma integração
+      operationId: getIntegrationStatus
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: A integração.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/Integration"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /api/v1/ws/ticket:
+    post:
+      tags: [websocket]
+      summary: Emite um ticket de WebSocket de curta duração
+      operationId: createWebSocketTicket
+      description: >
+        Retorna um ticket de uso único, válido por 30 segundos, que
+        autoriza exatamente um upgrade `GET /ws?ticket=...` (§38) —
+        navegadores não conseguem anexar um header Authorization ao
+        handshake de WebSocket, então este ticket é a credencial da conexão
+        em seu lugar. Sujeito a rate limiting por chamador.
+      responses:
+        "201":
+          description: Um ticket recém-emitido.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          ticket:
+                            type: string
+                          expires_at:
+                            type: string
+                            format: date-time
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+
+  /ws:
+    get:
+      tags: [websocket]
+      summary: Upgrade de WebSocket (não é um endpoint HTTP comum)
+      operationId: websocketUpgrade
+      description: >
+        Não modelado como uma operação REST — incluído aqui apenas para
+        descoberta. Exige `?ticket=<valor>` obtido em
+        `POST /api/v1/ws/ticket`. Ao conectar, o cliente recebe todo
+        envelope de evento da plataforma
+        (`{id,type,version,source,occurred_at,correlation_id,payload}`)
+        como um frame de texto JSON — ver `EventEnvelope` abaixo.
+      security: []
+      parameters:
+        - name: ticket
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: Switching Protocols — WebSocket estabelecido.
+        "401":
+          description: Ticket ausente, inválido, expirado ou já utilizado.
+
+  /api/v1/admin/feature-flags:
+    get:
+      tags: [admin]
+      summary: Lista toda feature flag registrada
+      operationId: listFeatureFlags
+      description: >
+        Restrito ao papel sophiia-admin. Inclui as flags semeadas por migration
+        (`diario_oficial_scraping_enabled`) e qualquer outra já criada via
+        PATCH.
+      security:
+        - bearerAuth: [feature_flags:manage]
+      responses:
+        "200":
+          description: Toda feature flag registrada.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: "#/components/schemas/FeatureFlag"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  /api/v1/admin/feature-flags/{key}:
+    patch:
+      tags: [admin]
+      summary: Habilita ou desabilita uma feature flag
+      operationId: setFeatureFlag
+      description: >
+        Restrito ao papel sophiia-admin. Efeito imediato em toda réplica da
+        API/worker — não há cache em memória, cada checagem de flag
+        consulta o Postgres diretamente (§ Feature Flags & Configuração
+        Dinâmica). Se `key` ainda não existir, é criada nesta chamada
+        (upsert).
+      security:
+        - bearerAuth: [feature_flags:manage]
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          example: "diario_oficial_scraping_enabled"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled:
+                  type: boolean
+            example:
+              enabled: false
+      responses:
+        "200":
+          description: A flag após a alteração.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/Envelope"
+                  - type: object
+                    properties:
+                      data:
+                        $ref: "#/components/schemas/FeatureFlag"
+        "400":
+          description: Corpo inválido ou chave da flag ausente.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+
+  # ------------------------------------------------------------------
+  # Módulo SOPHIIA — Capacitação, Instrução e Certificação Operacional.
+  # Todo o grupo fica atrás da feature flag `module_sophiia_enabled`
+  # (configflags.RequireEnabled): com a flag desligada, qualquer rota
+  # abaixo — inclusive a validação pública — responde
+  # 503 `FEATURE_DISABLED`.
+  # ------------------------------------------------------------------
+  # Fluxo assíncrono: confirm-upload → outbox `video.uploaded` →
+  # worker de transcodificação → `video_assets.READY`; complete-lesson na
+  # transição para concluído → outbox `course.completed` → worker de
+  # certificado (PDF + `certificates`) → evento `notification.email.requested`
+  # → worker de e-mail (fila sophiia.notify.email, prefetch 50).
+  /api/v1/public/certificates/validate/{token}:
+    get:
+      tags: [sophiia]
+      summary: Validação pública de certificado — SEM autenticação
+      description: >
+        Consulta o certificado pelo token de validação impresso no PDF /
+        codificado no QR Code. Não exige Bearer token; usada pela página
+        pública /validar-certificado/:token.
+      operationId: validateSophiiaCertificate
+      security: []
+      parameters: [{ name: token, in: path, required: true, schema: { type: string, maxLength: 64 } }]
+      responses:
+        "200": { description: "Certificado localizado — retorna os snapshots imutáveis para conferência.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "404": { description: "Token não encontrado." }
+        "503": { description: "Módulo SOPHIIA desativado (`FEATURE_DISABLED`)." }
+
+  /api/v1/sophiia/portal/catalog/systems:
+    get:
+      tags: [sophiia]
+      summary: Lista os sistemas municipais com trilhas de capacitação
+      operationId: listSophiiaSystems
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: "Lista de sistemas.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado (`FEATURE_DISABLED`)." }
+
+  /api/v1/sophiia/portal/catalog/courses:
+    get:
+      tags: [sophiia]
+      summary: Lista os cursos de um sistema
+      operationId: listSophiiaCourses
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: system_id, in: query, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "Lista de cursos.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "400": { description: "system_id inválido." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/portal/progress/heartbeat:
+    post:
+      tags: [sophiia]
+      summary: Grava a posição atual do player (buffer write-behind no Redis)
+      operationId: sophiiaHeartbeat
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [course_version_id, lesson_id, position_seconds]
+              properties:
+                course_version_id: { type: string, format: uuid }
+                lesson_id: { type: string, format: uuid }
+                position_seconds: { type: integer, minimum: 0 }
+      responses:
+        "200": { description: "Posição registrada." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/portal/lessons/{lessonID}/complete:
+    post:
+      tags: [sophiia]
+      summary: Marca uma lição como concluída e reconsolida o progresso
+      description: >
+        Recalcula user_course_progress com a TrainingCompletionPolicy
+        (>= 90% das lições obrigatórias). Na transição para concluído,
+        grava o evento `course.completed` no outbox — o worker de
+        certificado gera o PDF a partir daí.
+      operationId: completeSophiiaLesson
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: lessonID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "Progresso consolidado (percentual, is_completed, certificate_queued).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: "Lição não encontrada." }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  # Edição do catálogo (Studio do Instrutor) — todo o sub-grupo /admin
+  # exige a permissão `sophiia:instruct` (role sophiia-instructor ou
+  # sophiia-admin) além da feature flag.
+  /api/v1/sophiia/admin/systems:
+    post:
+      tags: [sophiia]
+      summary: Cria um sistema municipal (trilha de capacitação)
+      operationId: createSophiiaSystem
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name]
+              properties:
+                code: { type: string, maxLength: 50 }
+                name: { type: string, maxLength: 255 }
+                description: { type: string }
+      responses:
+        "201": { description: "Sistema criado.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/admin/systems/{systemID}/courses:
+    post:
+      tags: [sophiia]
+      summary: Cria um curso dentro de um sistema
+      operationId: createSophiiaCourse
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      parameters: [{ name: systemID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [title], properties: { title: { type: string }, description: { type: string } } } } }
+      responses:
+        "201": { description: "Curso criado.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: "Sistema não encontrado." }
+
+  /api/v1/sophiia/admin/courses/{courseID}/versions:
+    post:
+      tags: [sophiia]
+      summary: Cria uma versão de curso (não publicada)
+      operationId: createSophiiaCourseVersion
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      parameters: [{ name: courseID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [version_tag, workload_hours], properties: { version_tag: { type: string, maxLength: 20 }, workload_hours: { type: integer, minimum: 1 } } } } }
+      responses:
+        "201": { description: "Versão criada.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: "Curso não encontrado." }
+
+  /api/v1/sophiia/admin/versions/{versionID}/modules:
+    post:
+      tags: [sophiia]
+      summary: Cria um módulo numa versão de curso
+      operationId: createSophiiaModule
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      parameters: [{ name: versionID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [title], properties: { title: { type: string }, order_index: { type: integer, minimum: 0 } } } } }
+      responses:
+        "201": { description: "Módulo criado.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: "Versão não encontrada." }
+
+  /api/v1/sophiia/admin/modules/{moduleID}/lessons:
+    post:
+      tags: [sophiia]
+      summary: Cria uma lição num módulo
+      operationId: createSophiiaLesson
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      parameters: [{ name: moduleID, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [title], properties: { title: { type: string }, markdown_content: { type: string }, is_mandatory: { type: boolean, default: true }, order_index: { type: integer, minimum: 0 } } } } }
+      responses:
+        "201": { description: "Lição criada — o `id` alimenta o upload de videoaula.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: "Módulo não encontrado." }
+
+  /api/v1/sophiia/admin/versions/{versionID}/publish:
+    post:
+      tags: [sophiia]
+      summary: Publica a versão (marca como a corrente do curso)
+      description: Desmarca `is_current` das demais versões do mesmo curso e carimba `published_at`.
+      operationId: publishSophiiaCourseVersion
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      parameters: [{ name: versionID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "Versão publicada." }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { description: "Versão não encontrada." }
+
+  /api/v1/sophiia/admin/lessons/{lessonID}/upload-url:
+    post:
+      tags: [sophiia]
+      summary: Gera Presigned PUT URL para upload direto do MP4 no MinIO
+      description: >
+        Cria/reinicia o video_asset da lição em `UPLOADING` e devolve a URL
+        pré-assinada (prefixo raw-uploads/, expira em 1h). NÃO dispara a
+        transcodificação — o cliente deve chamar `.../confirm` após o PUT.
+      operationId: createSophiiaUploadURL
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: lessonID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "201": { description: "Ticket de upload (video_asset_id, upload_url, object_key, expires_in_seconds).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: "Lição não encontrada." }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/admin/video-assets/{assetID}/confirm:
+    post:
+      tags: [sophiia]
+      summary: Confirma o fim do upload e enfileira a transcodificação HLS
+      description: >
+        Move o video_asset para `PROCESSING` e grava `video.uploaded` no
+        outbox (mesma transação). Idempotente. O worker de vídeo
+        (sophiia.video.transcode, prefetch 1) baixa o MP4, gera HLS
+        multi-bitrate com FFmpeg, publica em hls/<lesson_id>/ e marca
+        `READY`.
+      operationId: confirmSophiiaUpload
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: assetID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "202": { description: "Transcodificação enfileirada." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: "video_asset não encontrado." }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/admin/lessons/{lessonID}/video:
+    get:
+      tags: [sophiia]
+      summary: Status do vídeo de uma lição (acompanhamento da transcodificação)
+      operationId: getSophiiaLessonVideo
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: lessonID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "video_asset (status UPLOADING|PROCESSING|READY|FAILED, hls_master_key, error_message).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: "Lição sem video_asset." }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/portal/courses/{versionID}/outline:
+    get:
+      tags: [sophiia]
+      summary: Árvore módulos → lições da versão, anotada com vídeo e conclusão
+      description: >
+        Para cada lição: status do vídeo, chave do master HLS e se o
+        usuário atual já a concluiu. É o que o player do Portal consome.
+      operationId: getSophiiaCourseOutline
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: versionID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "200": { description: "Outline do curso.", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/portal/certificates:
+    get:
+      tags: [sophiia]
+      summary: Lista os certificados do próprio servidor
+      operationId: listMySophiiaCertificates
+      security: [{ bearerAuth: [] }]
+      responses:
+        "200": { description: "Lista de certificados (com snapshots e token de validação).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+  /api/v1/sophiia/portal/certificates/{certID}/download:
+    get:
+      tags: [sophiia]
+      summary: Baixa o PDF de um certificado do próprio servidor
+      description: >
+        Responde 302 para uma URL pré-assinada do MinIO (expira em 5 min).
+        Rejeita certificado que não pertence ao chamador.
+      operationId: downloadSophiiaCertificate
+      security: [{ bearerAuth: [] }]
+      parameters: [{ name: certID, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        "302": { description: "Redirect para o PDF pré-assinado." }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "404": { description: "Certificado não encontrado para este usuário." }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Um access token OIDC emitido pelo Keycloak. Validado localmente
+        (assinatura, emissor, audiência, expiração, algoritmo) contra um
+        JWKS em cache.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: page_size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 20
+
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: false
+      description: >
+        Chave única por operação lógica (recomenda-se um UUID gerado no
+        cliente), escopada ao usuário autenticado. Reenviar a mesma
+        requisição com a mesma chave reproduz a resposta original em vez
+        de reexecutar a operação — ver a nota de Idempotência na descrição
+        geral da API.
+      schema:
+        type: string
+      example: "3f2b9e0a-6d34-4e77-9c3e-2b6f8e6b6a3d"
+
+  responses:
+    IdempotencyConflict:
+      description: >
+        Conflito relacionado à Idempotency-Key: `IDEMPOTENCY_KEY_IN_PROGRESS`
+        se uma requisição com a mesma chave ainda está sendo processada, ou
+        `IDEMPOTENCY_KEY_REUSED` se a chave já foi usada com um corpo de
+        requisição diferente.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Envelope"
+          examples:
+            in_progress:
+              summary: Requisição original ainda em andamento
+              value:
+                data: null
+                error: { code: "IDEMPOTENCY_KEY_IN_PROGRESS", message: "a request with this Idempotency-Key is already being processed" }
+            reused:
+              summary: Mesma chave usada com um corpo diferente
+              value:
+                data: null
+                error: { code: "IDEMPOTENCY_KEY_REUSED", message: "Idempotency-Key was already used with a different request" }
+
+    Unauthorized:
+      description: Access token ausente, inválido ou expirado.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Envelope"
+          example:
+            data: null
+            error: { code: "UNAUTHORIZED", message: "invalid or expired access token" }
+
+    Forbidden:
+      description: Autenticado, mas sem o role/permissão necessário.
+      content:
+        application/json:
+          example:
+            data: null
+            error: { code: "FORBIDDEN", message: "insufficient permission" }
+
+    NotFound:
+      description: O recurso não existe.
+      content:
+        application/json:
+          example:
+            data: null
+            error: { code: "NOT_FOUND", message: "resource not found" }
+
+    TooManyRequests:
+      description: Limite de requisições excedido.
+      content:
+        application/json:
+          example:
+            data: null
+            error: { code: "RATE_LIMITED", message: "too many requests, please try again later" }
+
+  schemas:
+    Envelope:
+      type: object
+      description: >
+        O formato base de toda resposta. Operações bem-sucedidas restringem
+        `data` a um tipo concreto via `allOf` no próprio schema da resposta;
+        esta forma base documenta o contrato genérico {data, error, meta}.
+      properties:
+        data:
+          type: object
+          nullable: true
+        error:
+          type: object
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/ErrorBody"
+        meta:
+          type: object
+          nullable: true
+      required: [data, error]
+
+    ErrorBody:
+      type: object
+      properties:
+        code:
+          type: string
+          example: "VALIDATION_ERROR"
+        message:
+          type: string
+          example: "email: failed on \"required\""
+      required: [code, message]
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+        page_size:
+          type: integer
+        total_items:
+          type: integer
+        total_pages:
+          type: integer
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        display_name:
+          type: string
+        active:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    Integration:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        key:
+          type: string
+          example: "diario-oficial"
+        name:
+          type: string
+        type:
+          type: string
+        enabled:
+          type: boolean
+        status:
+          type: string
+          enum: [unknown, online, offline, degraded, disabled]
+        last_check_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_success_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_error:
+          type: string
+          nullable: true
+
+    FeatureFlag:
+      type: object
+      description: Uma feature flag alterável em tempo de execução (§ Feature Flags & Configuração Dinâmica).
+      properties:
+        key:
+          type: string
+          example: "diario_oficial_scraping_enabled"
+        enabled:
+          type: boolean
+        description:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          description: Subject (Keycloak) do administrador que fez a última alteração; ausente se a flag nunca foi alterada manualmente.
+      required: [key, enabled, description, updated_at]
+
+    EventEnvelope:
+      type: object
+      description: O formato de toda mensagem entregue via WebSocket (§17/§43).
+      properties:
+        id:
+          type: string
+          format: uuid
+        type:
+          type: string
+          example: "diario_oficial.job.completed"
+        version:
+          type: integer
+        source:
+          type: string
+          example: "sophiia.example"
+        occurred_at:
+          type: string
+          format: date-time
+        correlation_id:
+          type: string
+          format: uuid
+        payload:
+          type: object
+      required: [id, type, version, source, occurred_at, correlation_id, payload]
+

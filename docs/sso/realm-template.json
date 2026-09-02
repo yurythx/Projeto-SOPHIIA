@@ -1,0 +1,68 @@
+{
+  "id": "sophiia",
+  "realm": "sophiia",
+  "displayName": "Projeto SOPHIIA",
+  "enabled": true,
+  "roles": {
+    "realm": [
+      {
+        "name": "sophiia-admin",
+        "description": "Administrador Geral"
+      },
+      {
+        "name": "sophiia-instructor",
+        "description": "Instrutor / Editor"
+      },
+      {
+        "name": "sophiia-user",
+        "description": "Usuário Padrão"
+      },
+      {
+        "name": "sophiia-integration-manager",
+        "description": "Gestor de Integrações"
+      },
+      {
+        "name": "sophiia-auditor",
+        "description": "Auditor"
+      }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "sophiia-frontend",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "CHANGE_ME_TO_A_SECURE_SECRET",
+      "redirectUris": [
+        "https://SEU_DOMINIO/api/auth/callback/keycloak"
+      ],
+      "webOrigins": [
+        "https://SEU_DOMINIO"
+      ],
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "publicClient": false,
+      "protocol": "openid-connect",
+      "protocolMappers": [
+        {
+          "name": "backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "sophiia-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "clientId": "sophiia-backend",
+      "enabled": true,
+      "bearerOnly": true,
+      "protocol": "openid-connect"
+    }
+  ]
+}

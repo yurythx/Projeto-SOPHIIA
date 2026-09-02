@@ -1,0 +1,221 @@
+name: projeto-sophiia
+networks:
+  sophiia_internal:
+    driver: bridge
+volumes:
+  postgres_data: null
+  rabbitmq_data: null
+  redis_data: null
+  minio_data: null
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - sophiia_internal
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME:-sophiia}
+      POSTGRES_USER: ${DB_USER:-sophiia}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - sophiia_internal
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U ${DB_USER:-sophiia} -d ${DB_NAME:-sophiia}
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:-sophiia}
+      RABBITMQ_DEFAULT_PASS:
+        ${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be
+        set}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_DEFAULT_VHOST:-sophiia}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./deploy/rabbitmq.conf:/etc/rabbitmq/conf.d/consumer_timeout.conf:ro
+    networks:
+      - sophiia_internal
+    healthcheck:
+      test:
+        - CMD
+        - rabbitmq-diagnostics
+        - -q
+        - check_port_connectivity
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+  minio:
+    image: minio/minio:latest
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+    volumes:
+      - minio_data:/data
+    ports:
+      # Só a API S3 (:9000) no host — o navegador abre URLs pré-assinadas e
+      # segmentos HLS por aqui. O console admin (:9001) NÃO é exposto na
+      # base; docker-compose.dev.yml o publica só em desenvolvimento.
+      - "${HOST_MINIO_PORT:-9002}:9000"
+    networks:
+      - sophiia_internal
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  backend-api:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      HTTP_PORT: ${HTTP_PORT:-8002}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3002}
+      DB_PORT: 5432
+      DB_HOST: postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-sophiia}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/${RABBITMQ_DEFAULT_VHOST:-sophiia}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9002}
+      MINIO_BUCKET: ${MINIO_BUCKET:-sophiia}
+      MINIO_USE_SSL: "false"
+    volumes:
+      - ./secrets:/run/secrets:ro
+    networks:
+      - sophiia_internal
+    ports:
+      - ${HTTP_PORT:-8002}:${HTTP_PORT:-8002}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://127.0.0.1:${HTTP_PORT:-8002}/health
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    extra_hosts:
+      - host.docker.internal:host-gateway
+  backend-worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      WORKER_METRICS_PORT: ${WORKER_METRICS_PORT:-9102}
+      DB_PORT: 5432
+      DB_HOST: postgres
+      RABBITMQ_URL: amqp://${RABBITMQ_DEFAULT_USER:-sophiia}:${RABBITMQ_DEFAULT_PASS}@rabbitmq:5672/${RABBITMQ_DEFAULT_VHOST:-sophiia}
+      REDIS_URL: ${REDIS_URL:-redis://redis:6379/0}
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER:?MINIO_ROOT_USER must be set}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD:?MINIO_ROOT_PASSWORD must be set}
+      MINIO_BUCKET: ${MINIO_BUCKET:-sophiia}
+      MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: ${MINIO_PUBLIC_URL:-http://localhost:9002}
+    volumes:
+      - ./secrets:/run/secrets:ro
+    networks:
+      - sophiia_internal
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://127.0.0.1:${WORKER_METRICS_PORT:-9102}/health
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    extra_hosts:
+      - host.docker.internal:host-gateway
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: ${API_PUBLIC_URL:-http://localhost:8002}
+        NEXT_PUBLIC_WS_URL: ${WEBSOCKET_PUBLIC_URL:-ws://localhost:8002/ws}
+        NEXT_PUBLIC_MINIO_URL: ${MINIO_PUBLIC_URL:-http://localhost:9002}
+        NEXT_PUBLIC_MINIO_BUCKET: ${MINIO_BUCKET:-sophiia}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_PUBLIC_URL:-http://localhost:8002}
+      NEXT_PUBLIC_WS_URL: ${WEBSOCKET_PUBLIC_URL:-ws://localhost:8002/ws}
+      NEXT_PUBLIC_MINIO_URL: ${MINIO_PUBLIC_URL:-http://localhost:9002}
+      NEXT_PUBLIC_MINIO_BUCKET: ${MINIO_BUCKET:-sophiia}
+      BACKEND_INTERNAL_URL: http://backend-api:${HTTP_PORT:-8002}
+      # NextAuth v4 com NODE_ENV=production (forçado na imagem) precisa da
+      # URL canônica pra montar os callbacks e o cookie de sessão — sem
+      # isso o /api/auth/callback/* pode responder 401 por mismatch de
+      # host. É a URL PÚBLICA do front, não a interna do container.
+      NEXTAUTH_URL: ${FRONTEND_URL:-http://localhost:3002}
+    networks:
+      - sophiia_internal
+    ports:
+      - ${FRONTEND_PORT:-3002}:3000
+    depends_on:
+      backend-api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - wget
+        - --spider
+        - -q
+        - http://127.0.0.1:3000
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    extra_hosts:
+      - host.docker.internal:host-gateway

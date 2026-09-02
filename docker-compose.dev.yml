@@ -1,0 +1,46 @@
+services:
+  postgres:
+    ports:
+      - ${HOST_DB_PORT:-5433}:5432
+  rabbitmq:
+    ports:
+      - ${HOST_RABBITMQ_PORT:-5673}:5672
+      - ${HOST_RABBITMQ_MGMT_PORT:-15673}:15672
+  minio:
+    ports:
+      - ${HOST_MINIO_PORT:-9002}:9000
+      - ${HOST_MINIO_CONSOLE_PORT:-9003}:9001
+
+  # Catcher de SMTP para dev: o worker sophiia.notify.email envia os
+  # e-mails de "certificado emitido" para cá; abra a caixa em
+  # http://localhost:${HOST_MAILPIT_UI_PORT:-8025}.
+  mailpit:
+    image: axllent/mailpit:latest
+    restart: unless-stopped
+    networks:
+      - sophiia_internal
+    ports:
+      - ${HOST_MAILPIT_UI_PORT:-8025}:8025
+    healthcheck:
+      test: ["CMD", "sh", "-c", "wget -q -O- http://127.0.0.1:8025/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  backend-api:
+    environment:
+      APP_ENV: development
+      APP_LOG_LEVEL: debug
+      LOG_FORMAT: text
+  backend-worker:
+    environment:
+      APP_ENV: development
+      APP_LOG_LEVEL: debug
+      LOG_FORMAT: text
+      SMTP_HOST: mailpit
+      SMTP_PORT: "1025"
+      SMTP_FROM: no-reply@sophiia.local
+    depends_on:
+      mailpit:
+        condition: service_started

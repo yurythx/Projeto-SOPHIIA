@@ -1,0 +1,39 @@
+# Configurações e Segredos Locais
+.env
+.env.local
+.env.*.local
+secrets/*.pem
+secrets/*.key
+
+# Node / Frontend
+node_modules/
+.next/
+out/
+build/
+dist/
+.env.production
+
+# Go / Backend
+bin/
+*.exe
+*.exe;
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+# Binários gerados por `go build ./cmd/<nome>` rodado de dentro de backend/
+# (o build "de verdade" é multi-stage no Docker, ver backend/Dockerfile.*).
+/backend/api
+/backend/worker
+/backend/seedadmin
+
+# IDEs e Editores
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
