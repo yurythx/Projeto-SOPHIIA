@@ -1,0 +1,244 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancela runs antigas do mesmo ref quando um push novo chega.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  backend:
+    name: backend (vet · gofmt · test · build)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: sophiia
+          POSTGRES_PASSWORD: sophiia_pass
+          POSTGRES_DB: sophiia
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U sophiia -d sophiia"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      TEST_DATABASE_URL: postgres://sophiia:sophiia_pass@localhost:5432/sophiia?sslmode=disable
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: gofmt
+        working-directory: backend
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "::error::arquivos não formatados (rode 'gofmt -w'):"; echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        working-directory: backend
+        run: go vet ./...
+
+      - name: migrations (goose)
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          "$(go env GOPATH)/bin/goose" -dir backend/migrations postgres "$TEST_DATABASE_URL" up
+
+      - name: go test
+        working-directory: backend
+        run: go test ./... -p 1
+
+      - name: go build
+        working-directory: backend
+        run: go build ./...
+
+  # ---------------------------------------------------------------------------
+  frontend:
+    name: frontend (lint · types · test · build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      # Prettier ainda não passou no repo inteiro (dívida conhecida) —
+      # informativo até um PR de formatação dedicado.
+      - name: prettier (informativo)
+        run: npm run format:check
+        continue-on-error: true
+
+      - name: next build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8002
+          NEXT_PUBLIC_WS_URL: ws://localhost:8002/ws
+          NEXT_PUBLIC_MINIO_URL: http://localhost:9002
+          NEXT_PUBLIC_MINIO_BUCKET: sophiia
+          KEYCLOAK_ISSUER_URL: https://ci-placeholder.invalid/realms/ci
+          KEYCLOAK_FRONTEND_CLIENT_ID: ci-placeholder
+          KEYCLOAK_FRONTEND_CLIENT_SECRET: ci-placeholder
+          NEXTAUTH_SECRET: ci-build-placeholder-not-a-real-secret-32c
+
+  # ---------------------------------------------------------------------------
+  docker:
+    name: docker build (3 imagens)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: build
+        run: |
+          REV=$(git rev-parse --short HEAD)
+          docker build --build-arg GIT_REVISION=$REV -f backend/Dockerfile.api    -t sophiia-api:ci    backend
+          docker build --build-arg GIT_REVISION=$REV -f backend/Dockerfile.worker -t sophiia-worker:ci backend
+          docker build --build-arg GIT_REVISION=$REV \
+            --build-arg NEXT_PUBLIC_API_URL=http://localhost:8002 \
+            --build-arg NEXT_PUBLIC_WS_URL=ws://localhost:8002/ws \
+            --build-arg NEXT_PUBLIC_MINIO_URL=http://localhost:9002 \
+            --build-arg NEXT_PUBLIC_MINIO_BUCKET=sophiia \
+            -f frontend/Dockerfile -t sophiia-frontend:ci frontend
+      - name: label sanity
+        run: |
+          test "$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' sophiia-api:ci)" = "$(git rev-parse --short HEAD)"
+
+  # ---------------------------------------------------------------------------
+  security:
+    name: gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ---------------------------------------------------------------------------
+  # Varreduras de vulnerabilidade — informativas (não bloqueiam o merge),
+  # para o time acompanhar CVEs sem travar entregas numa dependência
+  # transitiva que ainda não tem correção.
+  vuln-scan:
+    name: vuln scan (informativo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: govulncheck
+        continue-on-error: true
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          cd backend && "$(go env GOPATH)/bin/govulncheck" ./...
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: npm audit
+        continue-on-error: true
+        run: cd frontend && npm audit --audit-level=high
+
+  # ---------------------------------------------------------------------------
+  # E2E contra a stack REAL (docker compose). O job semeia o admin com uma
+  # senha fixa (cmd/seedadmin --password, ver comentários nos e2e specs).
+  # Não-bloqueante hoje: auth.spec (logout via Keycloak, ausente nesta
+  # stack) e hydration-no-flash (locator strict-mode) ainda falham — dívida
+  # rastreada. accessibility.spec + public-pages.spec passam.
+  e2e:
+    name: e2e (playwright)
+    runs-on: ubuntu-latest
+    needs: [backend, frontend]
+    env:
+      E2E_ADMIN_USERNAME: admin
+      E2E_ADMIN_PASSWORD: ci-e2e-fixed-password-not-secret
+      GIT_REVISION: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: prepara ambiente
+        run: |
+          cp .env.example .env
+          sed -i 's#MINIO_PUBLIC_URL=http://localhost:9000#MINIO_PUBLIC_URL=http://localhost:9002#' .env
+          mkdir -p secrets
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/local_auth_private_key.pem
+          chmod 600 secrets/local_auth_private_key.pem
+
+      - name: sobe a stack
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+      - name: aguarda healthy
+        run: |
+          for i in $(seq 1 60); do
+            if [ "$(docker inspect -f '{{.State.Health.Status}}' projeto-sophiia-frontend-1 2>/dev/null)" = "healthy" ]; then
+              echo "stack pronta"; exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail 80
+          exit 1
+
+      - name: migrations + seed admin
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          "$(go env GOPATH)/bin/goose" -dir backend/migrations \
+            postgres "postgres://sophiia:sophiia_pass@localhost:5433/sophiia?sslmode=disable" up
+          cd backend && DB_HOST=localhost DB_PORT=5433 DB_NAME=sophiia DB_USER=sophiia DB_PASSWORD=sophiia_pass DB_SSLMODE=disable \
+            go run ./cmd/seedadmin --username "$E2E_ADMIN_USERNAME" --password "$E2E_ADMIN_PASSWORD"
+
+      - name: playwright
+        working-directory: frontend
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_BASE_URL: http://localhost:3002
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test
+
+      - name: e2e report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+
+      - name: logs da stack (em falha)
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail 200

@@ -45,8 +45,8 @@ type TelemetryStats struct {
 }
 
 // GetTelemetryStats varre as chaves ativas do Heartbeat e produz um sumário
-// para o dashboard administrativo. 
-// Nota: Utilizamos KEYS para este protótipo dada a escala controlada. 
+// para o dashboard administrativo.
+// Nota: Utilizamos KEYS para este protótipo dada a escala controlada.
 // Em ultra-escala, adotaríamos SCAN ou conjuntos de controle.
 func (r *RedisBuffer) GetTelemetryStats(ctx context.Context) (*TelemetryStats, error) {
 	// A chave é no formato sophiia:heartbeat:{userID}:{courseVersionID}:{lessonID}
@@ -66,13 +66,13 @@ func (r *RedisBuffer) GetTelemetryStats(ctx context.Context) (*TelemetryStats, e
 		// Como fmt.Sscanf separa por espaço nativamente e não por :, vamos apenas pegar o slice:
 		// Uma abordagem mais segura em Go é não usar Sscanf aqui por causa do delimitador.
 		// Vamos simplificar pegando apenas o valor para os segundos totais primeiro.
-		
+
 		val, errGet := r.client.Get(ctx, key).Int()
 		if errGet == nil {
 			totalSeconds += val
 			// Podemos identificar a sessão pela própria chave ativa como aproximação
 			// ou fazer um parsing correto se necessário. Para este protótipo:
-			uniqueUsers[key] = true 
+			uniqueUsers[key] = true
 		}
 	}
 
@@ -81,4 +81,3 @@ func (r *RedisBuffer) GetTelemetryStats(ctx context.Context) (*TelemetryStats, e
 		TotalWatchHours: totalSeconds / 3600,
 	}, nil
 }
-

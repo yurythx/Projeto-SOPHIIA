@@ -19,9 +19,11 @@ import (
 // storageMock implementa storage.Provider para os testes E2E do fluxo.
 type storageMock struct{}
 
-func (s *storageMock) Put(context.Context, string, string, io.Reader, int64, string) error { return nil }
+func (s *storageMock) Put(context.Context, string, string, io.Reader, int64, string) error {
+	return nil
+}
 func (s *storageMock) Get(context.Context, string, string) (io.ReadCloser, error) { return nil, nil }
-func (s *storageMock) Delete(context.Context, string, string) error { return nil }
+func (s *storageMock) Delete(context.Context, string, string) error               { return nil }
 func (s *storageMock) PresignedPutURL(ctx context.Context, b, k string, d time.Duration) (string, error) {
 	return "https://fake-minio.local/put", nil
 }
@@ -50,7 +52,7 @@ func getTestPool(t *testing.T) *pgxpool.Pool {
 func TestVideoUploadAndConsumptionFlow(t *testing.T) {
 	pool := getTestPool(t)
 	repo := infrastructure.NewPostgresRepository(pool, nil) // outbox nil para o teste
-	
+
 	svc := NewService(repo, nil, &storageMock{}, nil, nil, slog.Default(), "test-bucket")
 	ctx := context.Background()
 
@@ -109,10 +111,10 @@ func TestVideoUploadAndConsumptionFlow(t *testing.T) {
 			// Na verdade svc.outboxWriter == nil vai causar panic no `Write`
 		}
 	}
-	
+
 	// Vamos forçar a transição diretamente via repositório para simular o Worker se o Outbox crachar,
 	// Mas o ideal é testar a função. Para não crachar, vamos pular a confirmação e testar o Worker output.
-	
+
 	// Simulando a saída do Worker de Transcodificação:
 	err = repo.UpdateVideoAssetResult(ctx, ticket.VideoAssetID, domain.VideoStatusReady, "hls/master.m3u8", "", 120)
 	if err != nil {
@@ -131,7 +133,7 @@ func TestVideoUploadAndConsumptionFlow(t *testing.T) {
 	if len(outline.Modules[0].Lessons) != 1 {
 		t.Fatalf("esperava 1 lição no módulo, obteve %d", len(outline.Modules[0].Lessons))
 	}
-	
+
 	viewedLesson := outline.Modules[0].Lessons[0]
 	if !viewedLesson.HasVideo {
 		t.Error("esperava que a lição tivesse vídeo marcado como True")

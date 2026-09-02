@@ -42,9 +42,9 @@ func TestSophiiaRBAC(t *testing.T) {
 	router := setupRouter()
 
 	tests := []struct {
-		name           string
-		roles          []string
-		method         string
+		name            string
+		roles           []string
+		method          string
 		path            string
 		expectForbidden bool
 	}{
@@ -133,7 +133,7 @@ func TestSophiiaRBAC(t *testing.T) {
 			router.ServeHTTP(rec, req)
 
 			isForbidden := rec.Code == http.StatusForbidden
-			
+
 			if tt.expectForbidden && !isForbidden {
 				t.Errorf("Rota %s %s com roles %v:\nEsperava ser bloqueado (403), mas obteve HTTP %d",
 					tt.method, tt.path, tt.roles, rec.Code)

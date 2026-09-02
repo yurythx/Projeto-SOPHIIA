@@ -19,7 +19,7 @@ import (
 func TestProviderPact(t *testing.T) {
 	// Inicia um servidor temporário mockando a API real
 	port, _ := utils.GetFreePort()
-	
+
 	// Mock do container de dependências para rodar a API em memória
 	// Aqui você pode injetar dependências falsas (banco de dados em memória)
 	// para que o provedor responda aos estados do Pact.
@@ -30,7 +30,7 @@ func TestProviderPact(t *testing.T) {
 	defer deps.Close()
 
 	router := app.NewRouter(deps)
-	
+
 	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", port))
 	if err != nil {
 		t.Fatal(err)
@@ -48,10 +48,10 @@ func TestProviderPact(t *testing.T) {
 
 	// Valida os contratos gerados pelo frontend
 	err = verifier.VerifyProvider(t, provider.VerifyRequest{
-		ProviderBaseURL:            fmt.Sprintf("http://127.0.0.1:%d", port),
-		Provider:                   "sophiia-backend",
-		PactDirs:                   []string{filepath.Join("..", "..", "..", "..", "..", "frontend", "pacts")},
-		FailIfNoPactsFound:         true,
+		ProviderBaseURL:    fmt.Sprintf("http://127.0.0.1:%d", port),
+		Provider:           "sophiia-backend",
+		PactDirs:           []string{filepath.Join("..", "..", "..", "..", "..", "frontend", "pacts")},
+		FailIfNoPactsFound: true,
 	})
 
 	if err != nil {
