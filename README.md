@@ -53,6 +53,15 @@ MinIO (S3) para vídeo bruto, segmentos HLS e PDFs; frontend em Next.js (App Rou
 - **Auditoria imutável** — `audit_logs` append-only protegido no nível do PostgreSQL.
 - **WebSocket** — broker de notificações em tempo real (ticket-based).
 - **Feature flags dinâmicas** — liga/desliga módulos em runtime, sem redeploy.
+- **Resiliência** — circuit breaker (gobreaker) nas integrações externas, chaves
+  de idempotência e rate limiting distribuído (por IP / por usuário).
+- **Observabilidade** — `slog` estruturado, `/metrics` Prometheus, tracing OTLP
+  opcional (`OTEL_EXPORTER_OTLP_ENDPOINT`), `/ready` e
+  `GET /api/v1/monitoring/health` (latência por dependência) para o painel
+  `/monitoramento`.
+- **Acessibilidade (e-MAG)** — barra fixa de atalhos, alto contraste,
+  redimensionamento de fonte e VLibras em todas as páginas; CSP com nonce por
+  requisição + headers OWASP.
 
 ---
 
@@ -72,7 +81,7 @@ MinIO (S3) para vídeo bruto, segmentos HLS e PDFs; frontend em Next.js (App Rou
 │   │       │                    # infrastructure (Postgres, Redis, FFmpeg, Maroto, e-mail)
 │   │       │                    # transport (handlers + rotas)
 │   │       ├── users/  integrations/  example/
-│   ├── migrations/              # PostgreSQL (Goose) — SOPHIIA: 000043, 000044
+│   ├── migrations/              # PostgreSQL (Goose) — 000001…000046
 │   └── pkg/httputil/
 ├── frontend/
 │   └── src/
@@ -166,7 +175,7 @@ certificado → validação pública.
 #   sudo apt install -y jq ffmpeg
 
 make dev-up          # stack desanexado, com portas de dev (pg:5433, mailpit:8025)
-make migrate-up      # aplica as 45 migrations (precisa do pg exposto -> use dev-up, não up)
+make migrate-up      # aplica as 46 migrations (precisa do pg exposto -> use dev-up, não up)
 make seed-admin      # anote a senha impressa
 
 SOPHIIA_ADMIN_PASS='<senha>' make smoke
