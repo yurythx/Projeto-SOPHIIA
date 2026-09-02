@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 interface HlsPlayerProps {
   src: string; // URL do master.m3u8
@@ -11,12 +11,17 @@ interface HlsPlayerProps {
   className?: string;
 }
 
+const SPEEDS = [1, 1.25, 1.5, 2] as const;
+
 // HlsPlayer reproduz HLS adaptativo. Usa o suporte nativo do navegador
 // quando disponível (Safari/iOS) e cai para hls.js (Chrome/Firefox),
 // carregado sob demanda para não pesar no bundle das telas sem player.
+// Controles nativos (play/pause, volume, fullscreen) + botões de
+// velocidade (a barra nativa não expõe isso de forma confiável).
 export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [speed, setSpeed] = useState(1);
   const lastReport = useRef(0);
 
   useEffect(() => {
@@ -72,15 +77,37 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
     };
   }, [src, onProgress, onEnded]);
 
+  const setPlaybackRate = useCallback((rate: number) => {
+    setSpeed(rate);
+    if (videoRef.current) videoRef.current.playbackRate = rate;
+  }, []);
+
   return (
     <div className={className}>
-      <video
-        ref={videoRef}
-        controls
-        playsInline
-        className="w-full rounded-lg bg-black aspect-video"
-      />
-      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      <div className="relative">
+        <video
+          ref={videoRef}
+          controls
+          playsInline
+          className="aspect-video w-full bg-black"
+        />
+        <div className="pointer-events-none absolute right-2 top-2 flex gap-0.5 rounded-md bg-black/60 p-0.5 text-[11px] font-semibold backdrop-blur">
+          {SPEEDS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => setPlaybackRate(s)}
+              className={`pointer-events-auto rounded px-1.5 py-0.5 transition-colors ${
+                speed === s ? "bg-white text-black" : "text-white/80 hover:text-white"
+              }`}
+              aria-pressed={speed === s}
+            >
+              {s === 1 ? "1×" : `${s}×`}
+            </button>
+          ))}
+        </div>
+      </div>
+      {error && <p className="mt-2 text-xs text-danger-strong">{error}</p>}
     </div>
   );
 }

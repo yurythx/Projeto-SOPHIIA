@@ -43,7 +43,23 @@ export interface OutlineLesson {
   has_video: boolean;
   video_status?: VideoStatus;
   hls_master_key?: string;
+  duration_seconds: number;
+  markdown_content?: string;
   completed: boolean;
+}
+
+export interface MyCourseItem {
+  course_id: string;
+  title: string;
+  description: string;
+  system_name: string;
+  version_id: string;
+  version_tag: string;
+  workload_hours: number;
+  total_lessons: number;
+  completed_lessons: number;
+  progress_percentage: number;
+  is_completed: boolean;
 }
 
 export interface OutlineModule {
@@ -101,6 +117,10 @@ export const sophiiaApi = {
   // Studio: todos os cursos (todos os sistemas) com contagens.
   listAdminCourses: () =>
     apiClient.get<AdminCourseItem[]>(`${base}/admin/courses`).then((r) => r.data ?? []),
+
+  // Catálogo "Meus Cursos" do Portal — com progresso do usuário, uma chamada.
+  listMyCourses: () =>
+    apiClient.get<MyCourseItem[]>(`${base}/portal/my-courses`).then((r) => r.data ?? []),
 
   courseOutline: (versionId: string) =>
     apiClient.get<CourseOutline>(`${base}/portal/courses/${versionId}/outline`).then((r) => r.data),

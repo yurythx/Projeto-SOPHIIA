@@ -1,25 +1,16 @@
-import { ModuleGate } from "@/components/modules/ModuleGate";
-import { PortalClient } from "./PortalClient";
-import { serverApiGet } from "@/lib/api/server";
-import { SophiiaSystem } from "@/lib/api/sophiia";
 import type { Metadata } from "next";
 
+import { ModuleGate } from "@/components/modules/ModuleGate";
+import { PortalClient } from "./PortalClient";
+
 export const metadata: Metadata = {
-  title: "SOPHIIA - Portal",
+  title: "SOPHIIA - Meus Cursos",
 };
 
-export default async function PortalPage() {
-  let fallbackSystems: SophiiaSystem[] = [];
-  try {
-    const res = await serverApiGet<SophiiaSystem[]>("v1/sophiia/portal/catalog/systems");
-    fallbackSystems = res.data ?? [];
-  } catch {
-    // Falha silenciosa no servidor; o SWR tentará de novo no cliente.
-  }
-
+export default function PortalPage() {
   return (
     <ModuleGate flag="module_sophiia_enabled" moduleName="SOPHIIA">
-      <PortalClient fallbackSystems={fallbackSystems} />
+      <PortalClient />
     </ModuleGate>
   );
 }

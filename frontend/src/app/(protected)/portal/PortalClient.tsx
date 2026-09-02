@@ -1,247 +1,162 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import useSWR from "swr";
-import {
-  Award,
-  BookOpen,
-  CheckCircle,
-  Clock,
-  Download,
-  PlayCircle,
-  ShieldCheck,
-} from "lucide-react";
+import { Award, Download, Search, ShieldCheck } from "lucide-react";
 
-import { useToast } from "@/components/notifications/ToastProvider";
-import { HlsPlayer } from "@/components/sophiia/HlsPlayer";
-import {
-  hlsMasterUrl,
-  sophiiaApi,
-  type OutlineLesson,
-  type SophiiaCourse,
-  type SophiiaSystem,
-} from "@/lib/api/sophiia";
-import { completeLessonAction, recordHeartbeatAction } from "@/app/actions/sophiia";
+import { CourseCard } from "@/components/sophiia/CourseCard";
+import { sophiiaApi } from "@/lib/api/sophiia";
 
-export function PortalClient({ fallbackSystems }: { fallbackSystems: SophiiaSystem[] }) {
-  const { showToast } = useToast();
+type StatusFilter = "all" | "in_progress" | "completed";
+type SortKey = "recent" | "progress" | "title";
+
+export function PortalClient() {
   const [tab, setTab] = useState<"catalog" | "certificates">("catalog");
-  const [systemId, setSystemId] = useState<string | null>(null);
-  const [course, setCourse] = useState<SophiiaCourse | null>(null);
-  const [lessonId, setLessonId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [sort, setSort] = useState<SortKey>("recent");
 
-  const { data: systems } = useSWR("sophiia/systems", () => sophiiaApi.listSystems(), {
-    fallbackData: fallbackSystems,
-  });
-  const activeSystem = systemId ?? systems?.[0]?.id ?? null;
-
-  const { data: courses } = useSWR(activeSystem ? ["sophiia/courses", activeSystem] : null, () =>
-    sophiiaApi.listCourses(activeSystem as string),
+  const { data: courses } = useSWR("sophiia/my-courses", () => sophiiaApi.listMyCourses());
+  const { data: certs } = useSWR(tab === "certificates" ? "sophiia/certs" : null, () =>
+    sophiiaApi.listCertificates(),
   );
 
-  const versionId = course?.current_version_id ?? null;
-  const { data: outline, mutate: mutateOutline } = useSWR(
-    versionId ? ["sophiia/outline", versionId] : null,
-    () => sophiiaApi.courseOutline(versionId as string),
+  const systemsWithCourses = useMemo(
+    () => Array.from(new Set((courses ?? []).map((c) => c.system_name))).sort(),
+    [courses],
   );
+  const [systemFilter, setSystemFilter] = useState<string | null>(null);
 
-  const { data: certs, mutate: mutateCerts } = useSWR(
-    tab === "certificates" ? "sophiia/certs" : null,
-    () => sophiiaApi.listCertificates(),
-  );
-
-  const lessons = useMemo(
-    () => (outline?.modules ?? []).flatMap((m) => m.lessons ?? []),
-    [outline],
-  );
-  const currentLesson = lessons.find((l) => l.id === lessonId) ?? null;
-
-  const handleHeartbeat = useCallback(
-    (pos: number) => {
-      if (versionId && lessonId) {
-        recordHeartbeatAction(versionId, lessonId, pos).catch(() => {});
-      }
-    },
-    [versionId, lessonId],
-  );
-
-  const handleComplete = useCallback(
-    async (id: string) => {
-      try {
-        await completeLessonAction(id);
-        showToast({
-          title: "Progresso salvo",
-          description: "Aula marcada como concluída.",
-          tone: "success",
-        });
-        await mutateOutline();
-        // Na vida real, a conclusão de curso é calculada assincronamente pelo
-        // worker. Aqui o mutateCerts vai buscar a lista de novo pra ver se
-        // apareceu um novo.
-        setTimeout(() => mutateCerts(), 3000);
-      } catch {
-        showToast({ title: "Falha ao salvar o progresso", tone: "danger" });
-      }
-    },
-    [showToast, mutateOutline, mutateCerts],
-  );
+  const visible = useMemo(() => {
+    let list = courses ?? [];
+    if (systemFilter) list = list.filter((c) => c.system_name === systemFilter);
+    if (status === "in_progress")
+      list = list.filter((c) => !c.is_completed && c.progress_percentage > 0);
+    if (status === "completed") list = list.filter((c) => c.is_completed);
+    const q = query.trim().toLowerCase();
+    if (q)
+      list = list.filter(
+        (c) =>
+          c.title.toLowerCase().includes(q) || c.system_name.toLowerCase().includes(q),
+      );
+    const sorted = [...list];
+    if (sort === "progress") sorted.sort((a, b) => b.progress_percentage - a.progress_percentage);
+    else if (sort === "title") sorted.sort((a, b) => a.title.localeCompare(b.title, "pt-BR"));
+    return sorted;
+  }, [courses, systemFilter, status, query, sort]);
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-4 border-b border-surface-border pb-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Portal SOPHIIA</h1>
+          <h1 className="text-2xl font-bold text-foreground">Meus Cursos</h1>
           <p className="text-sm text-muted">
-            Capacitação contínua, videoaulas e emissão de certificados dos sistemas municipais.
+            Capacitação contínua dos sistemas municipais — assista às videoaulas e emita seus
+            certificados.
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-lg bg-surface-border/30 p-1">
+        <div className="flex items-center gap-1 rounded-lg bg-surface-border/30 p-1">
           {(["catalog", "certificates"] as const).map((t) => (
             <button
               key={t}
+              type="button"
               onClick={() => setTab(t)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === t
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted hover:text-foreground"
+                tab === t ? "bg-primary text-primary-foreground" : "text-muted hover:text-foreground"
               }`}
             >
-              {t === "catalog" ? "Catálogo & Aulas" : "Certificados"}
+              {t === "catalog" ? "Catálogo" : "Certificados"}
             </button>
           ))}
         </div>
       </header>
 
       {tab === "catalog" && (
-        <div className="space-y-5">
-          <div className="flex flex-wrap gap-2">
-            {(systems ?? []).map((s) => (
-              <button
-                key={s.id}
-                onClick={() => {
-                  setSystemId(s.id);
-                  setCourse(null);
-                  setLessonId(null);
-                }}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                  activeSystem === s.id
-                    ? "border-primary bg-primary/10 text-primary"
-                    : "border-surface-border text-muted hover:text-foreground"
-                }`}
-              >
-                {s.name}
-              </button>
-            ))}
-            {systems && systems.length === 0 && (
-              <p className="text-sm text-muted">Nenhum sistema com trilha de capacitação.</p>
-            )}
-          </div>
+        <>
+          {/* Filtros superiores */}
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <label className="relative flex-1 lg:max-w-sm">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Buscar curso ou sistema…"
+                className="w-full rounded-lg border border-surface-border bg-surface py-2 pl-9 pr-3 text-sm text-foreground outline-none focus:border-primary"
+              />
+            </label>
 
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            <div className="space-y-3 lg:col-span-1">
-              {(courses ?? []).map((c) => (
+            <div className="flex flex-wrap items-center gap-2">
+              {(
+                [
+                  ["all", "Todos"],
+                  ["in_progress", "Em andamento"],
+                  ["completed", "Concluídos"],
+                ] as const
+              ).map(([k, label]) => (
                 <button
-                  key={c.id}
-                  onClick={() => {
-                    setCourse(c);
-                    setLessonId(null);
-                  }}
-                  className={`w-full rounded-xl border p-4 text-left transition-all ${
-                    course?.id === c.id
-                      ? "border-primary bg-primary/5"
-                      : "border-surface-border bg-surface hover:border-primary/50"
+                  key={k}
+                  type="button"
+                  onClick={() => setStatus(k)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                    status === k
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-surface-border text-muted hover:text-foreground"
                   }`}
                 >
-                  <p className="text-sm font-bold text-foreground">{c.title}</p>
-                  <p className="mt-1 line-clamp-2 text-xs text-muted">{c.description}</p>
-                  <span className="mt-2 inline-flex items-center gap-1 text-[11px] text-muted">
-                    <Clock className="h-3 w-3" /> {c.workload_hours ?? 0}h
-                    {!c.current_version_id && " · sem versão publicada"}
-                  </span>
+                  {label}
                 </button>
               ))}
-              {courses && courses.length === 0 && (
-                <p className="text-sm text-muted">Nenhum curso neste sistema.</p>
-              )}
-            </div>
 
-            <div className="lg:col-span-2">
-              {!course && (
-                <div className="rounded-xl border border-surface-border bg-surface p-8 text-center text-sm text-muted">
-                  <BookOpen className="mx-auto mb-2 h-8 w-8 opacity-50" />
-                  Selecione um curso para ver as aulas.
-                </div>
-              )}
-
-              {course && !versionId && (
-                <div className="rounded-xl border border-surface-border bg-surface p-8 text-center text-sm text-muted">
-                  Este curso ainda não tem uma versão publicada.
-                </div>
-              )}
-
-              {course && versionId && (
-                <div className="space-y-4">
-                  {currentLesson?.has_video &&
-                  currentLesson.video_status === "READY" &&
-                  currentLesson.hls_master_key ? (
-                    <HlsPlayer
-                      src={hlsMasterUrl(currentLesson.hls_master_key)}
-                      onProgress={handleHeartbeat}
-                      onEnded={() => handleComplete(currentLesson.id)}
-                    />
-                  ) : (
-                    <div className="flex aspect-video w-full items-center justify-center rounded-lg border border-surface-border bg-surface text-xs text-muted">
-                      {currentLesson
-                        ? currentLesson.has_video
-                          ? `Vídeo ${currentLesson.video_status ?? ""} — ainda não disponível`
-                          : "Esta aula não tem vídeo"
-                        : "Selecione uma aula ao lado"}
-                    </div>
-                  )}
-
-                  {currentLesson && (
-                    <div className="flex items-center justify-between rounded-lg border border-surface-border bg-surface p-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{currentLesson.title}</p>
-                        <p className="text-xs text-muted">
-                          {currentLesson.is_mandatory ? "Obrigatória" : "Opcional"} ·{" "}
-                          {currentLesson.completed ? "Concluída" : "Não concluída"}
-                        </p>
-                      </div>
-                      <button
-                        onClick={() => handleComplete(currentLesson.id)}
-                        disabled={currentLesson.completed}
-                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-                      >
-                        {currentLesson.completed ? "Concluída" : "Marcar como concluída"}
-                      </button>
-                    </div>
-                  )}
-
-                  <div className="divide-y divide-surface-border rounded-xl border border-surface-border bg-surface">
-                    {(outline?.modules ?? []).map((m) => (
-                      <div key={m.id} className="p-3">
-                        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted">
-                          {m.title}
-                        </p>
-                        <ul className="space-y-1">
-                          {(m.lessons ?? []).map((l) => (
-                            <LessonRow
-                              key={l.id}
-                              lesson={l}
-                              active={l.id === lessonId}
-                              onClick={() => setLessonId(l.id)}
-                            />
-                          ))}
-                        </ul>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortKey)}
+                aria-label="Ordenar"
+                className="rounded-lg border border-surface-border bg-surface px-2 py-1.5 text-xs text-foreground outline-none focus:border-primary"
+              >
+                <option value="recent">Mais recentes</option>
+                <option value="progress">Progresso</option>
+                <option value="title">A–Z</option>
+              </select>
             </div>
           </div>
-        </div>
+
+          {systemsWithCourses.length > 1 && (
+            <div className="flex flex-wrap gap-2">
+              <Chip active={systemFilter === null} onClick={() => setSystemFilter(null)}>
+                Todos os sistemas
+              </Chip>
+              {systemsWithCourses.map((s) => (
+                <Chip key={s} active={systemFilter === s} onClick={() => setSystemFilter(s)}>
+                  {s}
+                </Chip>
+              ))}
+            </div>
+          )}
+
+          {/* Grid */}
+          {!courses ? (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="aspect-[4/3] animate-pulse rounded-xl border border-surface-border bg-surface"
+                />
+              ))}
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="rounded-xl border border-surface-border bg-surface p-10 text-center text-sm text-muted">
+              {courses.length === 0
+                ? "Nenhum curso publicado ainda."
+                : "Nenhum curso encontrado com esses filtros."}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {visible.map((c) => (
+                <CourseCard key={c.course_id} course={c} />
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {tab === "certificates" && (
@@ -298,34 +213,26 @@ export function PortalClient({ fallbackSystems }: { fallbackSystems: SophiiaSyst
   );
 }
 
-function LessonRow({
-  lesson,
+function Chip({
   active,
   onClick,
+  children,
 }: {
-  lesson: OutlineLesson;
   active: boolean;
   onClick: () => void;
+  children: React.ReactNode;
 }) {
   return (
-    <li>
-      <button
-        onClick={onClick}
-        className={`flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors ${
-          active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-surface-border/40"
-        }`}
-      >
-        {lesson.completed ? (
-          <CheckCircle className="h-4 w-4 shrink-0 text-success" />
-        ) : (
-          <PlayCircle className="h-4 w-4 shrink-0 text-muted" />
-        )}
-        <span className="flex-1 truncate">{lesson.title}</span>
-        {lesson.has_video && lesson.video_status !== "READY" && (
-          <span className="text-[10px] uppercase text-warning">{lesson.video_status}</span>
-        )}
-        {!lesson.is_mandatory && <span className="text-[10px] text-muted">opcional</span>}
-      </button>
-    </li>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-surface-border text-muted hover:text-foreground"
+      }`}
+    >
+      {children}
+    </button>
   );
 }

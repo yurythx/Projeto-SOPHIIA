@@ -147,6 +147,50 @@ func (r *PostgresRepository) ListAllCoursesAdmin(ctx context.Context) ([]domain.
 	return out, rows.Err()
 }
 
+// ListMyCourses monta o catálogo "Meus Cursos" do Portal: todos os cursos
+// com versão publicada, cada um com carga horária e o progresso do
+// usuário (lições concluídas / total, %). Uma consulta só.
+func (r *PostgresRepository) ListMyCourses(ctx context.Context, userID uuid.UUID) ([]domain.MyCourseItem, error) {
+	const q = `
+		SELECT c.id, c.title, COALESCE(c.description, ''), s.name,
+		       cv.id, cv.version_tag, cv.workload_hours,
+		       COALESCE(t.total, 0), COALESCE(t.done, 0),
+		       CASE WHEN COALESCE(t.total, 0) = 0 THEN 0
+		            ELSE round(100.0 * t.done / t.total, 1) END,
+		       COALESCE(ucp.is_completed, false)
+		FROM courses c
+		JOIN systems s ON s.id = c.system_id
+		JOIN course_versions cv ON cv.course_id = c.id AND cv.is_current
+		LEFT JOIN LATERAL (
+			SELECT count(l.*) AS total,
+			       count(*) FILTER (WHERE ulc.user_id IS NOT NULL) AS done
+			FROM modules m
+			JOIN lessons l ON l.module_id = m.id
+			LEFT JOIN user_lesson_completion ulc ON ulc.lesson_id = l.id AND ulc.user_id = $1
+			WHERE m.course_version_id = cv.id
+		) t ON true
+		LEFT JOIN user_course_progress ucp ON ucp.user_id = $1 AND ucp.course_version_id = cv.id
+		WHERE c.is_active
+		ORDER BY s.name ASC, c.title ASC`
+	rows, err := r.db.Query(ctx, q, userID)
+	if err != nil {
+		return nil, fmt.Errorf("list my courses: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.MyCourseItem
+	for rows.Next() {
+		var it domain.MyCourseItem
+		if err := rows.Scan(&it.CourseID, &it.Title, &it.Description, &it.SystemName,
+			&it.VersionID, &it.VersionTag, &it.WorkloadHours,
+			&it.TotalLessons, &it.CompletedLessons, &it.ProgressPercentage, &it.IsCompleted); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
 func (r *PostgresRepository) GetCourseVersion(ctx context.Context, versionID uuid.UUID) (*domain.CourseVersion, error) {
 	const q = `SELECT id, course_id, version_tag, workload_hours, is_current, published_at, created_at FROM course_versions WHERE id = $1`
 	var v domain.CourseVersion
@@ -530,6 +574,7 @@ func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userI
 		SELECT m.id, m.title, m.order_index,
 		       l.id, l.title, l.is_mandatory, l.order_index,
 		       va.status, COALESCE(va.hls_master_key, ''),
+		       COALESCE(va.duration_seconds, 0), COALESCE(l.markdown_content, ''),
 		       (ulc.user_id IS NOT NULL) AS completed
 		FROM modules m
 		JOIN lessons l ON l.module_id = m.id
@@ -556,9 +601,11 @@ func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userI
 			lOrder       int
 			vStatus      *string
 			hlsMasterKey string
+			durationSecs int
+			markdown     string
 			completed    bool
 		)
-		if err := rows.Scan(&mID, &mTitle, &mOrder, &lID, &lTitle, &lMandatory, &lOrder, &vStatus, &hlsMasterKey, &completed); err != nil {
+		if err := rows.Scan(&mID, &mTitle, &mOrder, &lID, &lTitle, &lMandatory, &lOrder, &vStatus, &hlsMasterKey, &durationSecs, &markdown, &completed); err != nil {
 			return nil, err
 		}
 		mi, ok := idxByModule[mID]
@@ -569,7 +616,8 @@ func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userI
 		}
 		lesson := domain.OutlineLesson{
 			ID: lID, Title: lTitle, IsMandatory: lMandatory, OrderIndex: lOrder,
-			HasVideo: vStatus != nil, HLSMasterKey: hlsMasterKey, Completed: completed,
+			HasVideo: vStatus != nil, HLSMasterKey: hlsMasterKey,
+			DurationSeconds: durationSecs, MarkdownContent: markdown, Completed: completed,
 		}
 		if vStatus != nil {
 			lesson.VideoStatus = domain.VideoStatus(*vStatus)

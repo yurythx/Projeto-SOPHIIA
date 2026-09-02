@@ -141,14 +141,33 @@ type OutlineModule struct {
 }
 
 type OutlineLesson struct {
-	ID           uuid.UUID   `json:"id"`
-	Title        string      `json:"title"`
-	IsMandatory  bool        `json:"is_mandatory"`
-	OrderIndex   int         `json:"order_index"`
-	HasVideo     bool        `json:"has_video"`
-	VideoStatus  VideoStatus `json:"video_status,omitempty"`
-	HLSMasterKey string      `json:"hls_master_key,omitempty"`
-	Completed    bool        `json:"completed"`
+	ID              uuid.UUID   `json:"id"`
+	Title           string      `json:"title"`
+	IsMandatory     bool        `json:"is_mandatory"`
+	OrderIndex      int         `json:"order_index"`
+	HasVideo        bool        `json:"has_video"`
+	VideoStatus     VideoStatus `json:"video_status,omitempty"`
+	HLSMasterKey    string      `json:"hls_master_key,omitempty"`
+	DurationSeconds int         `json:"duration_seconds"`
+	MarkdownContent string      `json:"markdown_content,omitempty"`
+	Completed       bool        `json:"completed"`
+}
+
+// MyCourseItem é um card do catálogo "Meus Cursos" do Portal: o curso, o
+// sistema responsável, carga horária e o progresso do usuário atual
+// (lições concluídas / total). Só cursos com versão publicada.
+type MyCourseItem struct {
+	CourseID           uuid.UUID `json:"course_id"`
+	Title              string    `json:"title"`
+	Description        string    `json:"description"`
+	SystemName         string    `json:"system_name"`
+	VersionID          uuid.UUID `json:"version_id"`
+	VersionTag         string    `json:"version_tag"`
+	WorkloadHours      int       `json:"workload_hours"`
+	TotalLessons       int       `json:"total_lessons"`
+	CompletedLessons   int       `json:"completed_lessons"`
+	ProgressPercentage float64   `json:"progress_percentage"`
+	IsCompleted        bool      `json:"is_completed"`
 }
 
 type Certificate struct {

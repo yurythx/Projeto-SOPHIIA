@@ -22,6 +22,7 @@ func RegisterRoutes(api chi.Router, h *Handlers, gate, mutationLimit func(http.H
 		// Portal do Servidor — qualquer servidor autenticado.
 		s.Get("/portal/catalog/systems", h.ListSystems)
 		s.Get("/portal/catalog/courses", h.ListCourses)
+		s.Get("/portal/my-courses", h.ListMyCourses)
 		s.Get("/portal/courses/{versionID}/outline", h.CourseOutline)
 		s.Post("/portal/progress/heartbeat", h.RecordHeartbeat)
 		s.Post("/portal/lessons/{lessonID}/complete", h.CompleteLesson)

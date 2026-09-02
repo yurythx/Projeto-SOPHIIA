@@ -80,6 +80,11 @@ func (s *Service) ListAdminCourses(ctx context.Context) ([]domain.AdminCourseIte
 	return s.repo.ListAllCoursesAdmin(ctx)
 }
 
+// ListMyCourses monta o catálogo "Meus Cursos" do Portal para o usuário.
+func (s *Service) ListMyCourses(ctx context.Context, userID uuid.UUID) ([]domain.MyCourseItem, error) {
+	return s.repo.ListMyCourses(ctx, userID)
+}
+
 func (s *Service) RecordHeartbeat(ctx context.Context, userID, versionID, lessonID string, positionSeconds int) error {
 	return s.redisBuffer.RecordHeartbeat(ctx, userID, versionID, lessonID, positionSeconds)
 }

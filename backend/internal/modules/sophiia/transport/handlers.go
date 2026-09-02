@@ -60,6 +60,22 @@ func (h *Handlers) ListAdminCourses(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteOK(w, courses)
 }
 
+// ListMyCourses — GET /portal/my-courses: catálogo com progresso do
+// usuário atual.
+func (h *Handlers) ListMyCourses(w http.ResponseWriter, r *http.Request) {
+	actor, _, ok := auth.ActorUUID(r.Context())
+	if !ok || actor == nil {
+		httputil.WriteError(w, r, h.logger, apperrors.Unauthorized("identidade do servidor não resolvida"))
+		return
+	}
+	courses, err := h.svc.ListMyCourses(r.Context(), *actor)
+	if err != nil {
+		httputil.WriteError(w, r, h.logger, apperrors.Internal(err))
+		return
+	}
+	httputil.WriteOK(w, courses)
+}
+
 func (h *Handlers) RecordHeartbeat(w http.ResponseWriter, r *http.Request) {
 	var req heartbeatRequest
 	if err := httputil.DecodeJSON(w, r, &req); err != nil {
