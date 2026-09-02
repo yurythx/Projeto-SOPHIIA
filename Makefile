@@ -9,6 +9,12 @@ include .env
 export
 endif
 
+# Revisão do git carimbada nas imagens (label OCI + APP_REVISION) por todos
+# os alvos que fazem `docker compose ... build`. "unknown" fora de um
+# working tree git ou com árvore suja marcada com "-dirty".
+GIT_REVISION ?= $(shell git describe --always --dirty --match 'v[0-9]*' 2>/dev/null || git rev-parse --short HEAD 2>/dev/null || echo unknown)
+export GIT_REVISION
+
 COMPOSE      := docker compose -f docker-compose.yml -f docker-compose.dev.yml
 COMPOSE_PROD := docker compose -f docker-compose.yml
 GOOSE_DIR    := backend/migrations

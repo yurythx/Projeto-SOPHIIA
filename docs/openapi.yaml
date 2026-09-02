@@ -739,6 +739,26 @@ paths:
         "404": { description: "Lição sem video_asset." }
         "503": { description: "Módulo SOPHIIA desativado." }
 
+  /api/v1/sophiia/admin/telemetry:
+    get:
+      tags: [sophiia]
+      summary: Métricas de vídeo em tempo real (painel /monitoramento)
+      description: >
+        Sumário agregado das chaves de heartbeat ativas no Redis —
+        usuários assistindo agora e horas totais de assistência.
+      operationId: getSophiiaTelemetry
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      responses:
+        "200":
+          description: Métricas.
+          content:
+            application/json:
+              example:
+                data: { active_users: 12, total_watch_hours: 47 }
+                error: null
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
   /api/v1/sophiia/portal/courses/{versionID}/outline:
     get:
       tags: [sophiia]

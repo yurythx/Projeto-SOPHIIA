@@ -2,6 +2,7 @@ package app
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -66,7 +67,8 @@ func NewRouter(deps *Dependencies) chi.Router {
 		// Relatório de saúde detalhado (latência por dependência) para o
 		// painel /monitoramento do frontend. Sob /api/v1 => já exige
 		// autenticação; o /ready na raiz continua servindo o orquestrador.
-		api.Get("/monitoring/health", httpserver.MonitoringHandler(checks, 3*time.Second, ""))
+		// APP_REVISION é carimbada na imagem pelo build (ver Dockerfile.api).
+		api.Get("/monitoring/health", httpserver.MonitoringHandler(checks, 3*time.Second, os.Getenv("APP_REVISION")))
 
 		usersTransport.RegisterRoutes(api, deps.Modules.Users.Handlers, deps.Logger)
 		integrationsTransport.RegisterRoutes(api, deps.Modules.Integrations.Handlers)

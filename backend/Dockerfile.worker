@@ -15,6 +15,14 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/worker 
 # ---- runtime ----
 FROM alpine:3.20 AS runtime
 
+# GIT_REVISION vem do docker-compose (build.args) / Makefile — rastreabilidade
+# imagem↔commit via label OCI + ENV APP_REVISION disponível ao processo.
+ARG GIT_REVISION=unknown
+LABEL org.opencontainers.image.title="projeto-sophiia-worker" \
+      org.opencontainers.image.source="https://github.com/yurythx/projeto-sophiia" \
+      org.opencontainers.image.revision="${GIT_REVISION}"
+ENV APP_REVISION=${GIT_REVISION}
+
 # ffmpeg: transcodificação MP4 -> HLS multi-bitrate (worker de vídeo).
 # ttf-dejavu: fonte usada pelo Maroto v2 na geração do PDF de certificado.
 RUN apk add --no-cache ca-certificates ffmpeg ttf-dejavu

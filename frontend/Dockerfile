@@ -36,6 +36,12 @@ RUN npm run build
 FROM node:22-alpine AS runtime
 WORKDIR /app
 ENV NODE_ENV=production
+# GIT_REVISION vem do docker-compose (build.args) / Makefile — rastreabilidade
+# imagem↔commit via label OCI. Contexto de build é ./frontend, sem o .git.
+ARG GIT_REVISION=unknown
+LABEL org.opencontainers.image.title="projeto-sophiia-frontend" \
+      org.opencontainers.image.source="https://github.com/yurythx/projeto-sophiia" \
+      org.opencontainers.image.revision="${GIT_REVISION}"
 RUN addgroup -S nix && adduser -S nix -G nix
 
 COPY --from=builder --chown=nix:nix /app/public ./public
