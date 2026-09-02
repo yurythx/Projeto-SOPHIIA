@@ -97,6 +97,56 @@ func (r *PostgresRepository) ListCourses(ctx context.Context, systemID uuid.UUID
 	return courses, rows.Err()
 }
 
+// ListAllCoursesAdmin lista TODOS os cursos (todos os sistemas) com a
+// versão corrente e contagens de lições / vídeos prontos — a listagem do
+// Studio. Uma consulta só (sem N+1).
+func (r *PostgresRepository) ListAllCoursesAdmin(ctx context.Context) ([]domain.AdminCourseItem, error) {
+	// cv = a versão MAIS RELEVANTE do curso: a corrente se houver, senão a
+	// mais recente (rascunho). is_published = cv.is_current. Assim o Studio
+	// sempre tem um version_id para abrir o outline, e um botão "Publicar"
+	// quando ainda é rascunho.
+	const q = `
+		SELECT c.id, c.title, s.id, s.name,
+		       cv.id, COALESCE(cv.version_tag, ''), COALESCE(cv.is_current, false),
+		       COALESCE(l.cnt, 0), COALESCE(l.ready, 0)
+		FROM courses c
+		JOIN systems s ON s.id = c.system_id
+		LEFT JOIN LATERAL (
+			SELECT id, version_tag, is_current
+			FROM course_versions
+			WHERE course_id = c.id
+			ORDER BY is_current DESC, created_at DESC
+			LIMIT 1
+		) cv ON true
+		LEFT JOIN LATERAL (
+			SELECT count(*) AS cnt,
+			       count(*) FILTER (WHERE va.status = 'READY') AS ready
+			FROM modules m
+			JOIN lessons ls ON ls.module_id = m.id
+			LEFT JOIN video_assets va ON va.lesson_id = ls.id
+			WHERE m.course_version_id = cv.id
+		) l ON true
+		WHERE c.is_active
+		ORDER BY s.name ASC, c.title ASC`
+	rows, err := r.db.Query(ctx, q)
+	if err != nil {
+		return nil, fmt.Errorf("list all courses admin: %w", err)
+	}
+	defer rows.Close()
+
+	var out []domain.AdminCourseItem
+	for rows.Next() {
+		var it domain.AdminCourseItem
+		if err := rows.Scan(&it.ID, &it.Title, &it.SystemID, &it.SystemName,
+			&it.CurrentVersionID, &it.VersionTag, &it.IsPublished,
+			&it.LessonsCount, &it.VideosReadyCount); err != nil {
+			return nil, err
+		}
+		out = append(out, it)
+	}
+	return out, rows.Err()
+}
+
 func (r *PostgresRepository) GetCourseVersion(ctx context.Context, versionID uuid.UUID) (*domain.CourseVersion, error) {
 	const q = `SELECT id, course_id, version_tag, workload_hours, is_current, published_at, created_at FROM course_versions WHERE id = $1`
 	var v domain.CourseVersion

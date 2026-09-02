@@ -9,12 +9,13 @@ import { sophiiaApi } from "@/lib/api/sophiia";
 type Step = "system" | "course" | "version" | "module" | "lesson" | "done";
 
 // CatalogWizard cria a estrutura mínima até uma lição (sistema → curso →
-// versão → módulo → lição) e devolve o id da lição criada, para o Studio
-// já apontar o upload de vídeo para ela. Requer a role sophiia-instructor.
+// versão → módulo → lição) e devolve os ids do curso e da lição criados —
+// o Studio usa o courseId para abrir a página do curso. Requer a role
+// sophiia-instructor.
 export function CatalogWizard({
-  onLessonCreated,
+  onCreated,
 }: {
-  onLessonCreated: (lessonId: string) => void;
+  onCreated: (ids: { courseId: string; lessonId: string }) => void;
 }) {
   const { showToast } = useToast();
   const [step, setStep] = useState<Step>("system");
@@ -204,7 +205,7 @@ export function CatalogWizard({
                 }
               }
               setStep("done");
-              onLessonCreated(id);
+              onCreated({ courseId: ids.course as string, lessonId: id });
               if (published) {
                 showToast({
                   title: "Lição criada",

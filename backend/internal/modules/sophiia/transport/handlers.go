@@ -49,6 +49,17 @@ func (h *Handlers) ListCourses(w http.ResponseWriter, r *http.Request) {
 	httputil.WriteOK(w, courses)
 }
 
+// ListAdminCourses — GET /admin/courses: todos os cursos com contagens,
+// para a listagem do Studio.
+func (h *Handlers) ListAdminCourses(w http.ResponseWriter, r *http.Request) {
+	courses, err := h.svc.ListAdminCourses(r.Context())
+	if err != nil {
+		httputil.WriteError(w, r, h.logger, apperrors.Internal(err))
+		return
+	}
+	httputil.WriteOK(w, courses)
+}
+
 func (h *Handlers) RecordHeartbeat(w http.ResponseWriter, r *http.Request) {
 	var req heartbeatRequest
 	if err := httputil.DecodeJSON(w, r, &req); err != nil {

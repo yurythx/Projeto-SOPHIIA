@@ -23,6 +23,18 @@ export interface SophiiaCourse {
 
 export type VideoStatus = "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
 
+export interface AdminCourseItem {
+  id: string;
+  title: string;
+  system_id: string;
+  system_name: string;
+  current_version_id?: string | null;
+  version_tag?: string;
+  is_published: boolean;
+  lessons_count: number;
+  videos_ready_count: number;
+}
+
 export interface OutlineLesson {
   id: string;
   title: string;
@@ -85,6 +97,10 @@ export const sophiiaApi = {
         `${base}/portal/catalog/courses?system_id=${encodeURIComponent(systemId)}`,
       )
       .then((r) => r.data ?? []),
+
+  // Studio: todos os cursos (todos os sistemas) com contagens.
+  listAdminCourses: () =>
+    apiClient.get<AdminCourseItem[]>(`${base}/admin/courses`).then((r) => r.data ?? []),
 
   courseOutline: (versionId: string) =>
     apiClient.get<CourseOutline>(`${base}/portal/courses/${versionId}/outline`).then((r) => r.data),

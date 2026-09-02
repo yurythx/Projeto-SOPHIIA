@@ -739,6 +739,37 @@ paths:
         "404": { description: "Lição sem video_asset." }
         "503": { description: "Módulo SOPHIIA desativado." }
 
+  /api/v1/sophiia/admin/courses:
+    get:
+      tags: [sophiia]
+      summary: Lista todos os cursos (Studio) com contagens
+      description: >
+        Todos os cursos de todos os sistemas, cada um com a versão mais
+        relevante (corrente, senão o rascunho mais recente), se está
+        publicada, e contagens de lições e vídeos prontos. Uma consulta só
+        — a listagem do Studio do Instrutor.
+      operationId: listSophiiaAdminCourses
+      security: [{ bearerAuth: [sophiia:instruct] }]
+      responses:
+        "200":
+          description: Lista de cursos.
+          content:
+            application/json:
+              example:
+                data:
+                  - id: "b28680e0-3fa9-42bb-8179-c25f4aa7567d"
+                    title: "Segurança da Informação"
+                    system_id: "cd6caf2d-c750-48ed-8dc3-8b369d057cc5"
+                    system_name: "SIGEF"
+                    current_version_id: "8c4ea907-645b-4954-9866-96e8024e0a9e"
+                    version_tag: "1.0"
+                    is_published: true
+                    lessons_count: 6
+                    videos_ready_count: 4
+                error: null
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "503": { description: "Módulo SOPHIIA desativado." }
+
   /api/v1/sophiia/admin/telemetry:
     get:
       tags: [sophiia]

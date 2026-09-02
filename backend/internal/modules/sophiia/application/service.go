@@ -74,6 +74,12 @@ func (s *Service) ListCatalogCourses(ctx context.Context, systemID uuid.UUID) ([
 	return s.repo.ListCourses(ctx, systemID)
 }
 
+// ListAdminCourses lista todos os cursos (todos os sistemas) com contagens
+// — a listagem do Studio.
+func (s *Service) ListAdminCourses(ctx context.Context) ([]domain.AdminCourseItem, error) {
+	return s.repo.ListAllCoursesAdmin(ctx)
+}
+
 func (s *Service) RecordHeartbeat(ctx context.Context, userID, versionID, lessonID string, positionSeconds int) error {
 	return s.redisBuffer.RecordHeartbeat(ctx, userID, versionID, lessonID, positionSeconds)
 }

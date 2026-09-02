@@ -1,221 +1,106 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, UploadCloud, Video } from "lucide-react";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { ChevronRight, FolderPlus, Loader2, Video } from "lucide-react";
 
-import { useToast } from "@/components/notifications/ToastProvider";
 import { CatalogWizard } from "@/components/sophiia/CatalogWizard";
-import { LessonPicker } from "@/components/sophiia/LessonPicker";
-import { putToPresignedUrl, sophiiaApi, type VideoStatus } from "@/lib/api/sophiia";
+import { sophiiaApi } from "@/lib/api/sophiia";
 
-type Phase = "idle" | "requesting" | "uploading" | "confirming" | "processing" | "ready" | "failed";
-
+// Studio do Instrutor — LISTAGEM de cursos. Cada curso abre a própria
+// página (/studio/curso/[id]) onde se faz o upload e a transcodificação
+// dos vídeos, lição por lição. "Novo curso" abre o assistente e, ao
+// terminar, já navega para a página do curso criado.
 export function StudioClient() {
-  const { showToast } = useToast();
-  const [lessonId, setLessonId] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [phase, setPhase] = useState<Phase>("idle");
-  const [pct, setPct] = useState(0);
-  const [videoStatus, setVideoStatus] = useState<VideoStatus | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const router = useRouter();
+  const [creating, setCreating] = useState(false);
 
-  const stopPolling = useCallback(() => {
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-  }, []);
-
-  useEffect(() => stopPolling, [stopPolling]);
-
-  const poll = useCallback(
-    (id: string) => {
-      stopPolling();
-      pollRef.current = setInterval(async () => {
-        try {
-          const asset = await sophiiaApi.getLessonVideo(id);
-          setVideoStatus(asset.status);
-          if (asset.status === "READY") {
-            setPhase("ready");
-            setErrorMsg(null);
-            stopPolling();
-            showToast({ title: "Transcodificação concluída", tone: "success" });
-          } else if (asset.status === "FAILED") {
-            setPhase("failed");
-            setErrorMsg(asset.error_message ?? "Falha na transcodificação.");
-            stopPolling();
-            showToast({ title: "Transcodificação falhou", tone: "danger" });
-          }
-        } catch {
-          /* mantém o polling; erro transitório */
-        }
-      }, 4000);
-    },
-    [showToast, stopPolling],
+  const { data: courses, isLoading, mutate } = useSWR("sophiia/admin/courses", () =>
+    sophiiaApi.listAdminCourses(),
   );
-
-  const uuidOk = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    lessonId.trim(),
-  );
-
-  async function handleUpload() {
-    if (!uuidOk || !file) return;
-    const id = lessonId.trim();
-    setErrorMsg(null);
-    setPct(0);
-    try {
-      setPhase("requesting");
-      const ticket = await sophiiaApi.createUploadUrl(id);
-
-      setPhase("uploading");
-      await putToPresignedUrl(ticket.upload_url, file, setPct);
-
-      setPhase("confirming");
-      await sophiiaApi.confirmUpload(ticket.video_asset_id);
-
-      setPhase("processing");
-      setVideoStatus("PROCESSING");
-      poll(id);
-      showToast({
-        title: "Upload concluído",
-        description: "Transcodificação HLS em andamento…",
-        tone: "info",
-      });
-    } catch (e) {
-      setPhase("failed");
-      setErrorMsg(e instanceof Error ? e.message : "Erro no upload.");
-      showToast({ title: "Falha no upload", tone: "danger" });
-    }
-  }
-
-  const busy = ["requesting", "uploading", "confirming"].includes(phase);
 
   return (
     <div className="space-y-6">
-      <header className="border-b border-surface-border pb-4">
-        <h1 className="text-2xl font-bold text-foreground">Studio do Instrutor — SOPHIIA</h1>
-        <p className="text-sm text-muted">
-          Upload resiliente de videoaula (Presigned PUT direto no MinIO) e transcodificação HLS
-          multi-bitrate.
-        </p>
-      </header>
-
-      <CatalogWizard onLessonCreated={(id) => setLessonId(id)} />
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-4 rounded-xl border border-surface-border bg-surface p-5 lg:col-span-2">
-          <h2 className="flex items-center gap-2 text-base font-bold text-foreground">
-            <UploadCloud className="h-4 w-4 text-primary" /> Enviar videoaula
-          </h2>
-
-          <LessonPicker value={lessonId} onChange={setLessonId} />
-          {lessonId && !uuidOk && (
-            <span className="block text-[11px] text-danger-strong">
-              ID de lição inválido — selecione uma lição acima.
-            </span>
-          )}
-
-          <label
-            className={`flex cursor-pointer flex-col items-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-              file ? "border-primary/50" : "border-surface-border hover:border-primary/50"
-            }`}
-          >
-            <input
-              type="file"
-              accept="video/mp4,video/quicktime"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
-            <Video className="mb-2 h-8 w-8 text-muted" />
-            <span className="text-xs font-semibold text-foreground">
-              {file ? file.name : "Clique para escolher o MP4"}
-            </span>
-            <span className="mt-1 text-[10px] text-muted">
-              {file ? `${(file.size / 1024 / 1024).toFixed(1)} MB` : "MP4 / MOV"}
-            </span>
-          </label>
-
-          <button
-            onClick={handleUpload}
-            disabled={!uuidOk || !file || busy || phase === "processing"}
-            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-40"
-          >
-            {busy && <Loader2 className="h-4 w-4 animate-spin" />}
-            {phaseLabel(phase)}
-          </button>
-
-          {(phase === "uploading" || phase === "confirming") && (
-            <div className="h-2 w-full overflow-hidden rounded-full bg-surface-border/50">
-              <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
-            </div>
-          )}
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-surface-border bg-surface p-5">
-          <h2 className="text-base font-bold text-foreground">Status</h2>
-          <StatusLine phase={phase} videoStatus={videoStatus} />
-          {errorMsg && (
-            <p className="flex items-start gap-1.5 text-xs text-danger">
-              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {errorMsg}
-            </p>
-          )}
-          <p className="border-t border-surface-border pt-3 text-[11px] text-muted">
-            Use o assistente acima para criar a estrutura (sistema → curso → versão → módulo →
-            lição) — a lição nova já fica selecionada — ou escolha uma lição existente no seletor
-            Sistema → Curso → Lição. Requer a role <code>sophiia-instructor</code>.
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-surface-border pb-4">
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">Studio do Instrutor</h1>
+          <p className="text-sm text-muted">
+            Cursos de capacitação. Abra um curso para enviar as videoaulas e acompanhar a
+            transcodificação HLS.
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => setCreating((v) => !v)}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+        >
+          <FolderPlus className="h-4 w-4" />
+          {creating ? "Fechar" : "Novo curso"}
+        </button>
+      </header>
+
+      {creating && (
+        <CatalogWizard
+          onCreated={({ courseId }) => {
+            setCreating(false);
+            void mutate();
+            router.push(`/studio/curso/${courseId}`);
+          }}
+        />
+      )}
+
+      <div className="overflow-hidden rounded-xl border border-surface-border bg-surface">
+        <div className="grid grid-cols-[1fr_auto_auto_auto] gap-3 border-b border-surface-border bg-surface-hover/50 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted">
+          <span>Curso / Sistema</span>
+          <span className="text-center">Versão</span>
+          <span className="text-center">Lições</span>
+          <span className="text-center">Vídeos</span>
+        </div>
+
+        {isLoading && (
+          <div className="flex items-center justify-center gap-2 p-8 text-sm text-muted">
+            <Loader2 className="h-4 w-4 animate-spin" /> Carregando cursos…
+          </div>
+        )}
+
+        {!isLoading && (courses?.length ?? 0) === 0 && (
+          <div className="p-8 text-center text-sm text-muted">
+            Nenhum curso ainda. Use <strong>Novo curso</strong> para criar o primeiro.
+          </div>
+        )}
+
+        {courses?.map((c) => (
+          <Link
+            key={c.id}
+            href={`/studio/curso/${c.id}`}
+            className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-3 border-b border-surface-border px-4 py-3 text-sm transition-colors last:border-0 hover:bg-surface-hover"
+          >
+            <span className="min-w-0">
+              <span className="block truncate font-semibold text-foreground">{c.title}</span>
+              <span className="block truncate text-xs text-muted">{c.system_name}</span>
+            </span>
+            <span className="text-center text-xs">
+              {c.is_published ? (
+                <span className="rounded bg-success/10 px-1.5 py-0.5 font-medium text-success-strong">
+                  {c.version_tag || "publicado"}
+                </span>
+              ) : (
+                <span className="rounded bg-warning/10 px-1.5 py-0.5 font-medium text-warning-strong">
+                  rascunho
+                </span>
+              )}
+            </span>
+            <span className="text-center font-mono text-xs text-muted">{c.lessons_count}</span>
+            <span className="flex items-center justify-center gap-1 text-center font-mono text-xs text-muted">
+              <Video className="h-3 w-3" />
+              {c.videos_ready_count}/{c.lessons_count}
+              <ChevronRight className="ml-1 h-4 w-4 text-muted" />
+            </span>
+          </Link>
+        ))}
       </div>
     </div>
-  );
-}
-
-function phaseLabel(p: Phase): string {
-  switch (p) {
-    case "requesting":
-      return "Gerando URL…";
-    case "uploading":
-      return "Enviando…";
-    case "confirming":
-      return "Confirmando…";
-    case "processing":
-      return "Transcodificando…";
-    case "ready":
-      return "Enviar outra";
-    default:
-      return "Enviar e transcodificar";
-  }
-}
-
-function StatusLine({ phase, videoStatus }: { phase: Phase; videoStatus: VideoStatus | null }) {
-  if (phase === "ready" || videoStatus === "READY") {
-    return (
-      <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-success">
-        <CheckCircle2 className="h-4 w-4" /> Vídeo pronto (HLS publicado)
-      </p>
-    );
-  }
-  if (phase === "failed" || videoStatus === "FAILED") {
-    return (
-      <p role="alert" aria-live="assertive" className="flex items-center gap-2 text-sm text-danger">
-        <AlertTriangle className="h-4 w-4" /> Falhou
-      </p>
-    );
-  }
-  if (phase === "processing" || videoStatus === "PROCESSING") {
-    return (
-      <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-warning">
-        <Loader2 className="h-4 w-4 animate-spin" /> Transcodificação em andamento
-      </p>
-    );
-  }
-  if (phase === "idle") {
-    return <p className="text-sm text-muted">Aguardando envio.</p>;
-  }
-  return (
-    <p role="status" aria-live="polite" className="flex items-center gap-2 text-sm text-muted">
-      <Loader2 className="h-4 w-4 animate-spin" /> {phaseLabel(phase)}
-    </p>
   );
 }

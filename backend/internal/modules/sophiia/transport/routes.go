@@ -36,6 +36,7 @@ func RegisterRoutes(api chi.Router, h *Handlers, gate, mutationLimit func(http.H
 			}
 
 			// Edição do catálogo
+			admin.Get("/admin/courses", h.ListAdminCourses)
 			admin.Post("/admin/systems", h.CreateSystem)
 			admin.Post("/admin/systems/{systemID}/courses", h.CreateCourse)
 			admin.Post("/admin/courses/{courseID}/versions", h.CreateCourseVersion)
