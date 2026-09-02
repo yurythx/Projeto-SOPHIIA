@@ -26,13 +26,16 @@ export type VideoStatus = "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
 export interface AdminCourseItem {
   id: string;
   title: string;
+  description: string;
   system_id: string;
   system_name: string;
   current_version_id?: string | null;
   version_tag?: string;
+  workload_hours: number;
   is_published: boolean;
   lessons_count: number;
   videos_ready_count: number;
+  created_at: string;
 }
 
 export interface OutlineLesson {

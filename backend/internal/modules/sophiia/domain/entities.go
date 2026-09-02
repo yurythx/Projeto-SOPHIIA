@@ -63,13 +63,16 @@ type Course struct {
 type AdminCourseItem struct {
 	ID               uuid.UUID  `json:"id"`
 	Title            string     `json:"title"`
+	Description      string     `json:"description"`
 	SystemID         uuid.UUID  `json:"system_id"`
 	SystemName       string     `json:"system_name"`
 	CurrentVersionID *uuid.UUID `json:"current_version_id,omitempty"`
 	VersionTag       string     `json:"version_tag,omitempty"`
+	WorkloadHours    int        `json:"workload_hours"`
 	IsPublished      bool       `json:"is_published"`
 	LessonsCount     int        `json:"lessons_count"`
 	VideosReadyCount int        `json:"videos_ready_count"`
+	CreatedAt        time.Time  `json:"created_at"`
 }
 
 type CourseVersion struct {

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowLeft, Loader2, Rocket } from "lucide-react";
+import { ArrowLeft, Loader2, Rocket, Video } from "lucide-react";
 
 import { useToast } from "@/components/notifications/ToastProvider";
+import { CourseCover } from "@/components/sophiia/CourseCover";
 import { InlineAdd } from "@/components/sophiia/InlineAdd";
 import { LessonUploader } from "@/components/sophiia/LessonUploader";
 import { sophiiaApi } from "@/lib/api/sophiia";
@@ -33,7 +34,15 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
     sophiiaApi.courseOutline(versionId as string),
   );
 
-  const modules = outline?.modules ?? [];
+  const modules = useMemo(() => outline?.modules ?? [], [outline]);
+  const lessonStats = useMemo(() => {
+    const all = modules.flatMap((m) => m.lessons ?? []);
+    return {
+      total: all.length,
+      ready: all.filter((l) => l.video_status === "READY").length,
+      processing: all.filter((l) => l.video_status === "PROCESSING").length,
+    };
+  }, [modules]);
 
   async function guard(key: string, fn: () => Promise<void>) {
     setBusy(key);
@@ -89,10 +98,15 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
         <p className="text-sm text-danger-strong">Curso não encontrado.</p>
       ) : (
         <>
-          <header className="flex flex-wrap items-start justify-between gap-3 border-b border-surface-border pb-4">
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{course.title}</h1>
-              <p className="text-sm text-muted">
+          <header className="flex flex-col gap-4 border-b border-surface-border pb-5 sm:flex-row sm:items-center">
+            <CourseCover
+              id={course.id}
+              systemName={course.system_name}
+              className="h-24 w-40 shrink-0 rounded-lg"
+            />
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate text-2xl font-bold text-foreground">{course.title}</h1>
+              <p className="mt-0.5 text-sm text-muted">
                 {course.system_name}
                 {course.version_tag ? ` · versão ${course.version_tag}` : ""} ·{" "}
                 {course.is_published ? (
@@ -101,8 +115,15 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
                   <span className="text-warning-strong">rascunho</span>
                 )}
               </p>
+              {lessonStats.total > 0 && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
+                  <Video className="h-3.5 w-3.5" />
+                  {lessonStats.ready}/{lessonStats.total} aulas com vídeo pronto
+                  {lessonStats.processing > 0 && ` · ${lessonStats.processing} transcodificando`}
+                </p>
+              )}
             </div>
-            <div className="flex gap-2">
+            <div className="flex shrink-0 gap-2">
               {!course.is_published && versionId && (
                 <button
                   type="button"
@@ -155,8 +176,13 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
               const lessons = m.lessons ?? [];
               return (
                 <section key={m.id} className="rounded-xl border border-surface-border bg-surface p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <h2 className="text-sm font-bold text-foreground">{m.title}</h2>
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h2 className="min-w-0 truncate text-sm font-bold text-foreground">
+                      {m.title}
+                      <span className="ml-2 font-normal text-muted">
+                        {lessons.length} {lessons.length === 1 ? "lição" : "lições"}
+                      </span>
+                    </h2>
                     <InlineAdd
                       label="Lição"
                       placeholder="Título da lição"

@@ -106,13 +106,13 @@ func (r *PostgresRepository) ListAllCoursesAdmin(ctx context.Context) ([]domain.
 	// sempre tem um version_id para abrir o outline, e um botão "Publicar"
 	// quando ainda é rascunho.
 	const q = `
-		SELECT c.id, c.title, s.id, s.name,
-		       cv.id, COALESCE(cv.version_tag, ''), COALESCE(cv.is_current, false),
-		       COALESCE(l.cnt, 0), COALESCE(l.ready, 0)
+		SELECT c.id, c.title, COALESCE(c.description, ''), s.id, s.name,
+		       cv.id, COALESCE(cv.version_tag, ''), COALESCE(cv.workload_hours, 0), COALESCE(cv.is_current, false),
+		       COALESCE(l.cnt, 0), COALESCE(l.ready, 0), c.created_at
 		FROM courses c
 		JOIN systems s ON s.id = c.system_id
 		LEFT JOIN LATERAL (
-			SELECT id, version_tag, is_current
+			SELECT id, version_tag, workload_hours, is_current
 			FROM course_versions
 			WHERE course_id = c.id
 			ORDER BY is_current DESC, created_at DESC
@@ -137,9 +137,9 @@ func (r *PostgresRepository) ListAllCoursesAdmin(ctx context.Context) ([]domain.
 	var out []domain.AdminCourseItem
 	for rows.Next() {
 		var it domain.AdminCourseItem
-		if err := rows.Scan(&it.ID, &it.Title, &it.SystemID, &it.SystemName,
-			&it.CurrentVersionID, &it.VersionTag, &it.IsPublished,
-			&it.LessonsCount, &it.VideosReadyCount); err != nil {
+		if err := rows.Scan(&it.ID, &it.Title, &it.Description, &it.SystemID, &it.SystemName,
+			&it.CurrentVersionID, &it.VersionTag, &it.WorkloadHours, &it.IsPublished,
+			&it.LessonsCount, &it.VideosReadyCount, &it.CreatedAt); err != nil {
 			return nil, err
 		}
 		out = append(out, it)
