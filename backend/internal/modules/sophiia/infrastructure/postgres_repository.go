@@ -570,14 +570,18 @@ func (r *PostgresRepository) GetCertificateForUser(ctx context.Context, id, user
 // o status do vídeo e a conclusão pelo usuário. Uma consulta só, montada
 // em memória.
 func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userID uuid.UUID) (*domain.CourseOutline, error) {
+	// LEFT JOIN lessons: um módulo recém-criado (sem lições) precisa
+	// aparecer no outline — senão o Studio não consegue adicionar a 1ª
+	// lição nele (o módulo some da árvore). l.id nulo => linha só do
+	// módulo, sem lição.
 	const q = `
 		SELECT m.id, m.title, m.order_index,
-		       l.id, l.title, l.is_mandatory, l.order_index,
+		       l.id, COALESCE(l.title, ''), COALESCE(l.is_mandatory, false), COALESCE(l.order_index, 0),
 		       va.status, COALESCE(va.hls_master_key, ''),
 		       COALESCE(va.duration_seconds, 0), COALESCE(l.markdown_content, ''),
 		       (ulc.user_id IS NOT NULL) AS completed
 		FROM modules m
-		JOIN lessons l ON l.module_id = m.id
+		LEFT JOIN lessons l ON l.module_id = m.id
 		LEFT JOIN video_assets va ON va.lesson_id = l.id
 		LEFT JOIN user_lesson_completion ulc ON ulc.lesson_id = l.id AND ulc.user_id = $2
 		WHERE m.course_version_id = $1
@@ -595,7 +599,7 @@ func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userI
 			mID          uuid.UUID
 			mTitle       string
 			mOrder       int
-			lID          uuid.UUID
+			lID          *uuid.UUID
 			lTitle       string
 			lMandatory   bool
 			lOrder       int
@@ -614,8 +618,11 @@ func (r *PostgresRepository) CourseOutline(ctx context.Context, versionID, userI
 			mi = len(outline.Modules) - 1
 			idxByModule[mID] = mi
 		}
+		if lID == nil {
+			continue // módulo sem lições
+		}
 		lesson := domain.OutlineLesson{
-			ID: lID, Title: lTitle, IsMandatory: lMandatory, OrderIndex: lOrder,
+			ID: *lID, Title: lTitle, IsMandatory: lMandatory, OrderIndex: lOrder,
 			HasVideo: vStatus != nil, HLSMasterKey: hlsMasterKey,
 			DurationSeconds: durationSecs, MarkdownContent: markdown, Completed: completed,
 		}

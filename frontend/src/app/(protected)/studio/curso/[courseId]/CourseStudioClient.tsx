@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import useSWR from "swr";
-import { ArrowLeft, Loader2, Plus, Rocket } from "lucide-react";
+import { ArrowLeft, Loader2, Rocket } from "lucide-react";
 
 import { useToast } from "@/components/notifications/ToastProvider";
+import { InlineAdd } from "@/components/sophiia/InlineAdd";
 import { LessonUploader } from "@/components/sophiia/LessonUploader";
 import { sophiiaApi } from "@/lib/api/sophiia";
 
@@ -49,28 +50,17 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
     }
   }
 
-  function addModule() {
-    const title = window.prompt("Título do novo módulo:");
-    if (!title?.trim() || !versionId) return;
-    void guard("add-module", async () => {
-      await sophiiaApi.createModule(versionId, { title: title.trim(), order_index: modules.length });
-      await mutateOutline();
-      await mutateCourses();
-    });
+  async function addModule(title: string) {
+    if (!versionId) throw new Error("Curso sem versão.");
+    await sophiiaApi.createModule(versionId, { title, order_index: modules.length });
+    await mutateOutline();
+    await mutateCourses();
   }
 
-  function addLesson(moduleId: string, count: number) {
-    const title = window.prompt("Título da nova lição:");
-    if (!title?.trim()) return;
-    void guard(`add-lesson-${moduleId}`, async () => {
-      await sophiiaApi.createLesson(moduleId, {
-        title: title.trim(),
-        is_mandatory: true,
-        order_index: count,
-      });
-      await mutateOutline();
-      await mutateCourses();
-    });
+  async function addLesson(moduleId: string, count: number, title: string) {
+    await sophiiaApi.createLesson(moduleId, { title, is_mandatory: true, order_index: count });
+    await mutateOutline();
+    await mutateCourses();
   }
 
   function publish() {
@@ -128,14 +118,16 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
                   Publicar versão
                 </button>
               )}
-              <button
-                type="button"
-                onClick={addModule}
-                disabled={!versionId || busy === "add-module"}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-3 py-2 text-xs font-semibold text-foreground hover:bg-surface-hover disabled:opacity-50"
-              >
-                <Plus className="h-3.5 w-3.5" /> Módulo
-              </button>
+              {versionId && (
+                <span className="rounded-lg border border-surface-border px-2 py-1">
+                  <InlineAdd
+                    label="Módulo"
+                    placeholder="Título do módulo"
+                    size="md"
+                    onAdd={addModule}
+                  />
+                </span>
+              )}
             </div>
           </header>
 
@@ -165,14 +157,11 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
                 <section key={m.id} className="rounded-xl border border-surface-border bg-surface p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="text-sm font-bold text-foreground">{m.title}</h2>
-                    <button
-                      type="button"
-                      onClick={() => addLesson(m.id, lessons.length)}
-                      disabled={busy === `add-lesson-${m.id}`}
-                      className="inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 disabled:opacity-50"
-                    >
-                      <Plus className="h-3 w-3" /> Lição
-                    </button>
+                    <InlineAdd
+                      label="Lição"
+                      placeholder="Título da lição"
+                      onAdd={(title) => addLesson(m.id, lessons.length, title)}
+                    />
                   </div>
 
                   {lessons.length === 0 ? (

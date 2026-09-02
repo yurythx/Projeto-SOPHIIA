@@ -133,11 +133,34 @@ func TestCatalogListings(t *testing.T) {
 		t.Errorf("outro aluno deveria ver 0%%, viu %+v", oc)
 	}
 
-	// --- outline: duração + markdown por lição ---
+	// Módulo recém-criado, sem lições, PRECISA aparecer no outline (senão
+	// o Studio não consegue adicionar a 1ª lição nele).
+	emptyMod, err := svc.CreateModule(ctx, version.ID, "Módulo Vazio", 1)
+	if err != nil {
+		t.Fatalf("CreateModule vazio: %v", err)
+	}
+
+	// --- outline: módulo vazio presente + duração + markdown por lição ---
 	outline, err := svc.GetCourseOutline(ctx, student, version.ID)
 	if err != nil {
 		t.Fatalf("GetCourseOutline: %v", err)
 	}
+	if len(outline.Modules) != 2 {
+		t.Fatalf("outline: %d módulos, want 2 (inclusive o vazio)", len(outline.Modules))
+	}
+	var empty *domain.OutlineModule
+	for i := range outline.Modules {
+		if outline.Modules[i].ID == emptyMod.ID {
+			empty = &outline.Modules[i]
+		}
+	}
+	if empty == nil {
+		t.Fatal("módulo vazio sumiu do outline")
+	}
+	if len(empty.Lessons) != 0 {
+		t.Errorf("módulo vazio: %d lições, want 0", len(empty.Lessons))
+	}
+
 	got := outline.Modules[0].Lessons[0]
 	if got.DurationSeconds != 90 {
 		t.Errorf("outline: DurationSeconds=%d, want 90", got.DurationSeconds)
