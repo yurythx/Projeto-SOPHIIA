@@ -66,6 +66,10 @@ func NewWorker(deps *Dependencies) (*Worker, error) {
 			supervised("idempotency_cleanup", deps.Logger, idempotency.Cleanup(deps.DB)),
 			supervised("jobs_stale_sweeper", deps.Logger, jobs.SweepStale(deps.DB, staleHandlers, deps.Config.Jobs.StaleAfter, deps.Logger)),
 			supervised("sophiia_video_worker", deps.Logger, func(ctx context.Context) error {
+				// Assets presos em PROCESSING de um FFmpeg morto por
+				// restart voltam a ter status (FAILED) antes de começar a
+				// consumir — senão ficam "transcodificando" pra sempre.
+				deps.Modules.Sophiia.VideoWorker.ReconcileStaleProcessing(ctx)
 				return videoConsumer.Consume(ctx, videoHandler)
 			}),
 			supervised("sophiia_cert_worker", deps.Logger, func(ctx context.Context) error {

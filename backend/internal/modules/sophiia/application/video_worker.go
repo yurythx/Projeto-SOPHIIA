@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/yurythx/projeto-sophiia/internal/domain/events"
 	"github.com/yurythx/projeto-sophiia/internal/modules/sophiia/domain"
 	"github.com/yurythx/projeto-sophiia/internal/modules/sophiia/infrastructure"
@@ -34,6 +36,22 @@ type VideoWorker struct {
 
 func NewVideoWorker(repo videoWorkerRepo, storageProvider storage.Provider, transcoder hlsTranscoder, logger *slog.Logger) *VideoWorker {
 	return &VideoWorker{repo: repo, storage: storageProvider, transcoder: transcoder, logger: logger}
+}
+
+// ReconcileStaleProcessing marca como FAILED os video_assets presos em
+// PROCESSING há mais de transcodeTimeout — chamado uma vez no boot do
+// worker. Um FFmpeg morto por restart do container deixaria o asset preso
+// pra sempre, sem status de erro (o "não finaliza e não mostra erro"
+// relatado). Nunca derruba o boot: erro só é logado.
+func (w *VideoWorker) ReconcileStaleProcessing(ctx context.Context) {
+	n, err := w.repo.FailStaleProcessing(ctx, transcodeTimeout)
+	if err != nil {
+		w.logger.Warn("sophiia video worker: reconcílio de PROCESSING preso falhou", slog.Any("error", err))
+		return
+	}
+	if n > 0 {
+		w.logger.Warn("sophiia video worker: assets presos em PROCESSING marcados como FAILED no boot", slog.Int("count", n))
+	}
 }
 
 // Handle implementa events.MessageHandler.
@@ -85,7 +103,7 @@ func (w *VideoWorker) process(ctx context.Context, logger *slog.Logger, p domain
 
 	outDir := filepath.Join(tmpRoot, "hls")
 	logger.Info("sophiia video worker: executando FFmpeg")
-	if _, err := w.transcoder.TranscodeToHLS(ctx, rawPath, outDir); err != nil {
+	if _, err := w.transcoder.TranscodeToHLS(ctx, rawPath, outDir, w.progressReporter(logger, p.VideoAssetID)); err != nil {
 		return err
 	}
 	duration := w.transcoder.ProbeDurationSeconds(ctx, rawPath)
@@ -99,6 +117,30 @@ func (w *VideoWorker) process(ctx context.Context, logger *slog.Logger, p domain
 
 	masterKey := keyPrefix + "/master.m3u8"
 	return w.repo.UpdateVideoAssetResult(ctx, p.VideoAssetID, domain.VideoStatusReady, masterKey, "", duration)
+}
+
+// progressReporter devolve um callback para o transcoder que persiste o
+// percentual em video_assets.progress_percent — com trava: no máximo a
+// cada 3s e só quando avança >= 2 pontos, para não martelar o banco. Erro
+// de gravação é só logado (progresso é cosmético, não pode derrubar a
+// transcodificação).
+func (w *VideoWorker) progressReporter(logger *slog.Logger, assetID uuid.UUID) func(int) {
+	var lastPct = -100
+	var lastAt time.Time
+	return func(pct int) {
+		now := time.Now()
+		if pct < 100 && pct-lastPct < 2 && now.Sub(lastAt) < 3*time.Second {
+			return
+		}
+		lastPct, lastAt = pct, now
+		// ctx próprio: o ctx da transcodificação pode já estar cancelado
+		// quando o último progresso chega.
+		uctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		if err := w.repo.UpdateVideoAssetProgress(uctx, assetID, pct); err != nil {
+			logger.Warn("sophiia video worker: falha ao gravar progresso", slog.Int("percent", pct), slog.Any("error", err))
+		}
+	}
 }
 
 // truncErr limita a mensagem de erro gravada em video_assets.error_message.

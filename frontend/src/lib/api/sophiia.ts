@@ -155,6 +155,7 @@ export interface VideoAsset {
   status: VideoStatus;
   hls_master_key: string;
   duration_seconds: number;
+  progress_percent: number;
   error_message?: string;
 }
 

@@ -734,7 +734,7 @@ paths:
       security: [{ bearerAuth: [] }]
       parameters: [{ name: lessonID, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
-        "200": { description: "video_asset (status UPLOADING|PROCESSING|READY|FAILED, hls_master_key, error_message).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
+        "200": { description: "video_asset (status UPLOADING|PROCESSING|READY|FAILED, progress_percent 0..100, hls_master_key, error_message).", content: { application/json: { schema: { $ref: "#/components/schemas/Envelope" } } } }
         "401": { $ref: "#/components/responses/Unauthorized" }
         "404": { description: "Lição sem video_asset." }
         "503": { description: "Módulo SOPHIIA desativado." }

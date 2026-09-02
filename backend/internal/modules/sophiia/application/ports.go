@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -22,6 +23,12 @@ type processedEventStore interface {
 type videoWorkerRepo interface {
 	processedEventStore
 	UpdateVideoAssetResult(ctx context.Context, assetID uuid.UUID, status domain.VideoStatus, hlsMasterKey, errMsg string, durationSeconds int) error
+	UpdateVideoAssetProgress(ctx context.Context, assetID uuid.UUID, percent int) error
+	// FailStaleProcessing marca como FAILED todo video_asset preso em
+	// PROCESSING há mais que olderThan — rodado no boot do worker, quando
+	// nada está transcodificando de fato (um FFmpeg morto por restart
+	// deixaria o asset preso pra sempre, sem erro). Devolve quantos mexeu.
+	FailStaleProcessing(ctx context.Context, olderThan time.Duration) (int, error)
 }
 
 type certWorkerRepo interface {
@@ -36,6 +43,7 @@ type certWorkerRepo interface {
 }
 
 type hlsTranscoder interface {
-	TranscodeToHLS(ctx context.Context, inputFilePath, outputDir string) (string, error)
+	// onProgress (pode ser nil) recebe 0..100 conforme o FFmpeg avança.
+	TranscodeToHLS(ctx context.Context, inputFilePath, outputDir string, onProgress func(percent int)) (string, error)
 	ProbeDurationSeconds(ctx context.Context, inputFilePath string) int
 }

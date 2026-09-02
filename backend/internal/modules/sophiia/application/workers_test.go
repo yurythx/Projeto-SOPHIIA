@@ -26,15 +26,18 @@ var discard = slog.New(slog.NewTextHandler(io.Discard, nil))
 // ---------------------------------------------------------------------------
 
 type fakeRepo struct {
-	mu           sync.Mutex
-	processed    map[string]bool
-	markErr      error
-	unmarkCalls  int
-	updateCalls  []string
-	certExists   bool
-	issueData    *domain.CertificateIssueData
-	inserted     bool
-	insertedCert *domain.Certificate
+	mu             sync.Mutex
+	processed      map[string]bool
+	markErr        error
+	unmarkCalls    int
+	updateCalls    []string
+	progressCalls  []int
+	failStaleCalls int
+	failStaleN     int
+	certExists     bool
+	issueData      *domain.CertificateIssueData
+	inserted       bool
+	insertedCert   *domain.Certificate
 	// CertWorker: captura da chamada transacional IssueCertificate.
 	issueCalls    int
 	notifyType    string
@@ -80,6 +83,20 @@ func (f *fakeRepo) UpdateVideoAssetResult(_ context.Context, _ uuid.UUID, status
 	defer f.mu.Unlock()
 	f.updateCalls = append(f.updateCalls, string(status)+"|"+hls+"|"+msg)
 	return nil
+}
+
+func (f *fakeRepo) UpdateVideoAssetProgress(_ context.Context, _ uuid.UUID, percent int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.progressCalls = append(f.progressCalls, percent)
+	return nil
+}
+
+func (f *fakeRepo) FailStaleProcessing(_ context.Context, _ time.Duration) (int, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.failStaleCalls++
+	return f.failStaleN, nil
 }
 
 func (f *fakeRepo) CertificateExists(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
@@ -139,12 +156,16 @@ func (s *fakeStorage) PresignedGetURL(context.Context, string, string, time.Dura
 
 type fakeTranscoder struct{ err error }
 
-func (t *fakeTranscoder) TranscodeToHLS(_ context.Context, _, outputDir string) (string, error) {
+func (t *fakeTranscoder) TranscodeToHLS(_ context.Context, _, outputDir string, onProgress func(int)) (string, error) {
 	if t.err != nil {
 		return "", t.err
 	}
 	if err := os.MkdirAll(outputDir, 0o755); err != nil {
 		return "", err
+	}
+	if onProgress != nil {
+		onProgress(50)
+		onProgress(100)
 	}
 	master := filepath.Join(outputDir, "master.m3u8")
 	if err := os.WriteFile(master, []byte("#EXTM3U"), 0o644); err != nil {

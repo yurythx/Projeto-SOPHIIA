@@ -144,6 +144,7 @@ func (r *PostgresRepository) CreateOrResetVideoAsset(ctx context.Context, asset 
 			raw_s3_key = EXCLUDED.raw_s3_key,
 			hls_master_key = NULL,
 			error_message = NULL,
+			progress_percent = 0,
 			processing_started_at = NULL,
 			processing_completed_at = NULL,
 			updated_at = now()
@@ -151,24 +152,59 @@ func (r *PostgresRepository) CreateOrResetVideoAsset(ctx context.Context, asset 
 	return r.db.QueryRow(ctx, q, asset.ID, asset.LessonID, asset.Status, asset.RawS3Key).Scan(&asset.ID)
 }
 
+// UpdateVideoAssetProgress grava só o percentual de progresso (0..100) —
+// chamado com frequência pelo worker durante a transcodificação.
+func (r *PostgresRepository) UpdateVideoAssetProgress(ctx context.Context, assetID uuid.UUID, percent int) error {
+	if percent < 0 {
+		percent = 0
+	} else if percent > 100 {
+		percent = 100
+	}
+	_, err := r.db.Exec(ctx,
+		`UPDATE video_assets SET progress_percent = $1, updated_at = now() WHERE id = $2 AND status = 'PROCESSING'`,
+		percent, assetID)
+	if err != nil {
+		return fmt.Errorf("update video asset progress: %w", err)
+	}
+	return nil
+}
+
+// FailStaleProcessing marca como FAILED todo video_asset preso em
+// PROCESSING há mais que olderThan (updated_at antigo). Roda no boot do
+// worker — nada está transcodificando de fato nesse momento.
+func (r *PostgresRepository) FailStaleProcessing(ctx context.Context, olderThan time.Duration) (int, error) {
+	tag, err := r.db.Exec(ctx, `
+		UPDATE video_assets
+		SET status = 'FAILED',
+		    error_message = 'transcodificação interrompida (worker reiniciado) — reenvie o vídeo',
+		    processing_completed_at = now(),
+		    updated_at = now()
+		WHERE status = 'PROCESSING' AND updated_at < now() - $1::interval`,
+		fmt.Sprintf("%d seconds", int(olderThan.Seconds())))
+	if err != nil {
+		return 0, fmt.Errorf("fail stale processing: %w", err)
+	}
+	return int(tag.RowsAffected()), nil
+}
+
 func (r *PostgresRepository) GetVideoAsset(ctx context.Context, id uuid.UUID) (*domain.VideoAsset, error) {
 	return scanVideoAsset(r.db.QueryRow(ctx,
 		`SELECT id, lesson_id, status, COALESCE(raw_s3_key,''), COALESCE(hls_master_key,''), duration_seconds,
-		        COALESCE(error_message,''), processing_started_at, processing_completed_at, created_at, updated_at
+		        COALESCE(error_message,''), progress_percent, processing_started_at, processing_completed_at, created_at, updated_at
 		 FROM video_assets WHERE id = $1`, id))
 }
 
 func (r *PostgresRepository) GetVideoAssetByLesson(ctx context.Context, lessonID uuid.UUID) (*domain.VideoAsset, error) {
 	return scanVideoAsset(r.db.QueryRow(ctx,
 		`SELECT id, lesson_id, status, COALESCE(raw_s3_key,''), COALESCE(hls_master_key,''), duration_seconds,
-		        COALESCE(error_message,''), processing_started_at, processing_completed_at, created_at, updated_at
+		        COALESCE(error_message,''), progress_percent, processing_started_at, processing_completed_at, created_at, updated_at
 		 FROM video_assets WHERE lesson_id = $1`, lessonID))
 }
 
 func scanVideoAsset(row pgx.Row) (*domain.VideoAsset, error) {
 	var a domain.VideoAsset
 	err := row.Scan(&a.ID, &a.LessonID, &a.Status, &a.RawS3Key, &a.HLSMasterKey, &a.DurationSeconds,
-		&a.ErrorMessage, &a.ProcessingStartedAt, &a.ProcessingCompletedAt, &a.CreatedAt, &a.UpdatedAt)
+		&a.ErrorMessage, &a.ProgressPercent, &a.ProcessingStartedAt, &a.ProcessingCompletedAt, &a.CreatedAt, &a.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -184,7 +220,7 @@ func (r *PostgresRepository) MarkVideoProcessing(ctx context.Context, q dbtx, as
 	_, err := q.Exec(ctx, `
 		UPDATE video_assets
 		SET status = 'PROCESSING', processing_started_at = COALESCE(processing_started_at, now()),
-		    error_message = NULL, updated_at = now()
+		    error_message = NULL, progress_percent = 0, updated_at = now()
 		WHERE id = $1`, assetID)
 	if err != nil {
 		return fmt.Errorf("mark video processing: %w", err)
@@ -206,6 +242,7 @@ func (r *PostgresRepository) UpdateVideoAssetResult(ctx context.Context, assetID
 		    hls_master_key = NULLIF($2, ''),
 		    error_message = NULLIF($3, ''),
 		    duration_seconds = $4,
+		    progress_percent = CASE WHEN $1 = 'READY'::video_status THEN 100 ELSE progress_percent END,
 		    processing_completed_at = $5,
 		    updated_at = now()
 		WHERE id = $6`, status, hlsMasterKey, errMsg, durationSeconds, completedAt, assetID)

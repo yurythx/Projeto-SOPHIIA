@@ -91,6 +91,7 @@ type VideoAsset struct {
 	RawS3Key              string      `json:"raw_s3_key"`
 	HLSMasterKey          string      `json:"hls_master_key"`
 	DurationSeconds       int         `json:"duration_seconds"`
+	ProgressPercent       int         `json:"progress_percent"`
 	ErrorMessage          string      `json:"error_message,omitempty"`
 	ProcessingStartedAt   *time.Time  `json:"processing_started_at,omitempty"`
 	ProcessingCompletedAt *time.Time  `json:"processing_completed_at,omitempty"`
