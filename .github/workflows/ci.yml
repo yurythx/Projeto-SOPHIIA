@@ -125,6 +125,31 @@ jobs:
         run: |
           test "$(docker inspect -f '{{index .Config.Labels "org.opencontainers.image.revision"}}' sophiia-api:ci)" = "$(git rev-parse --short HEAD)"
 
+      # SBOM (syft) + scan de vulnerabilidade das imagens (trivy) —
+      # informativos: sobem como artifact / SARIF, não travam o merge por
+      # CVE numa camada base sem correção disponível.
+      - name: SBOM
+        uses: anchore/sbom-action@v0
+        with:
+          image: sophiia-api:ci
+          artifact-name: sbom-api.spdx.json
+      - name: trivy (api)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: sophiia-api:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+      - name: trivy (frontend)
+        uses: aquasecurity/trivy-action@0.28.0
+        continue-on-error: true
+        with:
+          image-ref: sophiia-frontend:ci
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+
   # ---------------------------------------------------------------------------
   security:
     name: gitleaks
