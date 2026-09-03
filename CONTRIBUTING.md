@@ -23,10 +23,14 @@ Rode os mesmos gates do CI (`.github/workflows/ci.yml`):
 | Frontend | `cd frontend && npm run lint && npm run typecheck && npm test && npm run build` |
 | Tudo | `make lint && make test` |
 
+- Node **22** (`.nvmrc`; `nvm use`) — mesmo do CI e da imagem Docker.
 - `make backend-test` (= `./scripts/test-backend.sh`) sobe um Postgres
-  **descartável**, aplica as migrations e roda `go test ./... -p 1` contra
-  ele. Se `TEST_DATABASE_URL` já estiver definida, usa esse banco e não
-  sobe container.
+  **descartável**, aplica as migrations e roda `go test ./... -p 1 -race`
+  contra ele. Se `TEST_DATABASE_URL` já estiver definida, usa esse banco e
+  não sobe container.
+- `npm run test:coverage` gera o relatório de cobertura em
+  `frontend/coverage/` (o CI o publica como artifact). Ainda sem limite
+  mínimo — medindo antes de exigir.
 - **Não** aponte `TEST_DATABASE_URL` para o banco do `make dev-up`: os
   testes que tocam o banco (outbox, configflags, integrations) assumem que
   ninguém mais escreve na tabela durante o teste — com o stack no ar, o

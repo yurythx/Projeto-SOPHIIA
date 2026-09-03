@@ -1,0 +1,24 @@
+# https://editorconfig.org — regras mínimas para o editor bater com o que
+# gofmt e Prettier já impõem no CI, antes mesmo de rodar os linters.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.go]
+indent_style = tab
+indent_size = 4
+
+[Makefile]
+indent_style = tab
+
+[*.{md,mdx}]
+trim_trailing_whitespace = false  # dois espaços no fim = quebra de linha
+
+[*.{yml,yaml,json,jsonc}]
+indent_size = 2

@@ -28,7 +28,7 @@ cd "$(dirname "$0")/.."
 if [ -n "${TEST_DATABASE_URL:-}" ]; then
   echo "==> TEST_DATABASE_URL já definida — usando esse banco, sem container"
   cd backend
-  exec go test "${@:-./...}" -p 1 -count=1
+  exec go test "${@:-./...}" -p 1 -count=1 -race
 fi
 
 PORT="${TEST_PG_PORT:-5544}"
@@ -75,4 +75,4 @@ rm -f /tmp/sophiia-goose.$$
 
 echo "==> go test"
 cd backend
-TEST_DATABASE_URL="$DSN" go test "${@:-./...}" -p 1 -count=1
+TEST_DATABASE_URL="$DSN" go test "${@:-./...}" -p 1 -count=1 -race

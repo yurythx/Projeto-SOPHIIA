@@ -56,9 +56,9 @@ jobs:
           go install github.com/pressly/goose/v3/cmd/goose@latest
           "$(go env GOPATH)/bin/goose" -dir backend/migrations postgres "$TEST_DATABASE_URL" up
 
-      - name: go test
+      - name: go test (-race)
         working-directory: backend
-        run: go test ./... -p 1
+        run: go test ./... -p 1 -race
 
       - name: go build
         working-directory: backend
@@ -83,7 +83,15 @@ jobs:
 
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      - run: npm run test:coverage
+
+      - name: coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-coverage
+          path: frontend/coverage
+          if-no-files-found: ignore
 
       - name: prettier
         run: npm run format:check

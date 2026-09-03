@@ -20,6 +20,15 @@ export default defineConfig({
     // o Vitest tenta rodar esses arquivos como se fossem seus e falha
     // com um erro de import, achado real adicionando o Playwright.
     exclude: ["node_modules", ".next", "e2e"],
+    coverage: {
+      // Informativo por ora (medir antes de exigir): `npm run test:coverage`
+      // gera o relatório; o CI o publica como artifact. Sem `thresholds`
+      // até termos uma linha de base honesta pra ratchet.
+      provider: "v8",
+      reporter: ["text-summary", "html", "lcov"],
+      include: ["src/**/*.{ts,tsx}"],
+      exclude: ["src/**/*.d.ts", "src/**/*.test.{ts,tsx}", "src/**/__mocks__/**", "src/types/**"],
+    },
   },
   resolve: {
     alias: {

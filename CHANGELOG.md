@@ -52,6 +52,13 @@ e-MAG/WCAG e VLibras). As entradas abaixo cobrem o que mudou desde então.
   os testes live-DB contra o banco do `make dev-up`.
 - **ShellCheck** nos `scripts/*.sh` — gate bloqueante no CI (job `shellcheck`)
   e hook de pre-commit.
+- **Detector de corridas de dados** (`go test -race`) no CI e no
+  `make backend-test`.
+- **Cobertura de testes do frontend** (`vitest --coverage`, provedor v8) —
+  `npm run test:coverage`, publicada como artifact no CI. Informativa por
+  ora (linha de base ~47% de linhas), sem limite mínimo até haver ratchet.
+- `.editorconfig` e `.nvmrc` (Node 22) — paridade de ambiente entre
+  editores, CI e Docker; `engines.node` no `package.json` do frontend.
 
 ### Alterado
 
