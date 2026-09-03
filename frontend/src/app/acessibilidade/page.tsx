@@ -30,8 +30,8 @@ export default async function AcessibilidadePage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Acessibilidade</h1>
           <p className="text-sm text-muted">
-            Portal Oficial da {branding.orgName} — conformidade com o e-MAG
-            (Modelo de Acessibilidade em Governo Eletrônico).
+            Portal Oficial da {branding.orgName} — conformidade com o e-MAG (Modelo de
+            Acessibilidade em Governo Eletrônico).
           </p>
         </div>
       </header>
@@ -42,12 +42,14 @@ export default async function AcessibilidadePage() {
           title="Atalhos de teclado (e-MAG)"
         >
           <p className="text-xs leading-relaxed text-muted">
-            Cada atalho aparece na barra superior apenas nas páginas em que o
-            destino existe:
+            Cada atalho aparece na barra superior apenas nas páginas em que o destino existe:
           </p>
           <ul className="flex flex-col gap-2 font-mono text-xs text-foreground">
             <Shortcut keys="Alt + 1" desc="Ir para o conteúdo principal (#conteudo)" />
-            <Shortcut keys="Alt + 2" desc="Ir para o menu principal (#menu) — nas telas do sistema" />
+            <Shortcut
+              keys="Alt + 2"
+              desc="Ir para o menu principal (#menu) — nas telas do sistema"
+            />
             <Shortcut keys="Alt + 4" desc="Ir para o rodapé (#rodape)" />
           </ul>
           <div className="mt-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-[11px] text-foreground">

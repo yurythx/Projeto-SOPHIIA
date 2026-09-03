@@ -103,7 +103,11 @@ export function LessonUploader({
       )}
 
       {status === "PROCESSING" && (
-        <Progress label="Transcodificando para HLS…" pct={asset?.progress_percent ?? 0} tone="warn" />
+        <Progress
+          label="Transcodificando para HLS…"
+          pct={asset?.progress_percent ?? 0}
+          tone="warn"
+        />
       )}
 
       {status === "READY" && (

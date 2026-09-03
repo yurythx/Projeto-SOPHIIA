@@ -175,7 +175,10 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
             {modules.map((m) => {
               const lessons = m.lessons ?? [];
               return (
-                <section key={m.id} className="rounded-xl border border-surface-border bg-surface p-4">
+                <section
+                  key={m.id}
+                  className="rounded-xl border border-surface-border bg-surface p-4"
+                >
                   <div className="mb-3 flex items-center justify-between gap-2">
                     <h2 className="min-w-0 truncate text-sm font-bold text-foreground">
                       {m.title}
@@ -195,7 +198,10 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
                   ) : (
                     <ul className="space-y-3">
                       {lessons.map((l) => (
-                        <li key={l.id} className="space-y-2 border-t border-surface-border pt-3 first:border-0 first:pt-0">
+                        <li
+                          key={l.id}
+                          className="space-y-2 border-t border-surface-border pt-3 first:border-0 first:pt-0"
+                        >
                           <div className="flex items-center gap-2 text-sm">
                             <span className="font-medium text-foreground">{l.title}</span>
                             {l.is_mandatory && (

@@ -22,9 +22,8 @@ export default function ExemplosPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  const { data, error, isLoading, mutate } = useSWR<{ data: ExampleItem[] }>(
-    "v1/examples",
-    () => apiClient.get<ExampleItem[]>("v1/examples").then((res) => res),
+  const { data, error, isLoading, mutate } = useSWR<{ data: ExampleItem[] }>("v1/examples", () =>
+    apiClient.get<ExampleItem[]>("v1/examples").then((res) => res),
   );
 
   const items = data?.data ?? [];

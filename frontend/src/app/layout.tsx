@@ -36,7 +36,7 @@ const geistMono = Geist_Mono({
 export async function generateMetadata(): Promise<Metadata> {
   const cookieStore = await cookies();
   const branding = parseBrandingCookie(cookieStore.get(BRANDING_COOKIE)?.value);
-  
+
   return {
     title: "Projeto SOPHIIA",
     description:
@@ -78,10 +78,10 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
             Os alvos dos atalhos (#conteudo, #menu, #rodape) ficam nas
             áreas: DashboardShell (dashboard) e nos <main>/<footer> das
             páginas públicas. */}
-        <AccessibilityBar 
-          initialHighContrast={highContrast} 
-          initialFontScale={fontScale} 
-          initialOrgName={branding.orgName} 
+        <AccessibilityBar
+          initialHighContrast={highContrast}
+          initialFontScale={fontScale}
+          initialOrgName={branding.orgName}
         />
         <Providers>{children}</Providers>
         {/* Suíte de tradução para Libras do Governo Federal. */}

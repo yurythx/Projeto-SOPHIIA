@@ -78,10 +78,7 @@ export default async function LoginPage() {
 
       {/* Painel do formulário — é o conteúdo principal da página (alvo do
           atalho de salto Alt+1) e o único landmark <main> do /login. */}
-      <main
-        id="conteudo"
-        className="relative flex flex-1 flex-col items-center justify-center p-6"
-      >
+      <main id="conteudo" className="relative flex flex-1 flex-col items-center justify-center p-6">
         <div className="absolute right-4 top-4">
           <ThemeToggle initialTheme={initialTheme} />
         </div>

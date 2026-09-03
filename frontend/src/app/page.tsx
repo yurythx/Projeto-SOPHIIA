@@ -154,9 +154,7 @@ export default async function LandingPage() {
       >
         <section className="flex flex-col gap-8">
           <div className="flex flex-col gap-5">
-            <p className="dateline">
-              {branding.orgName} · Capacitação e Certificação
-            </p>
+            <p className="dateline">{branding.orgName} · Capacitação e Certificação</p>
             <h1 className="max-w-2xl text-4xl font-extrabold leading-[1.15] text-foreground sm:text-5xl">
               Capacitação e certificação dos servidores dos sistemas municipais.
             </h1>
@@ -257,7 +255,9 @@ export default async function LandingPage() {
         className="mx-auto flex w-full max-w-5xl items-center gap-4 border-t border-surface-border px-6 py-6 text-xs text-muted"
       >
         <Seal size={40} decorative className="text-surface-border" />
-        <p>© {new Date().getFullYear()} {branding.orgName} · Projeto SOPHIIA</p>
+        <p>
+          © {new Date().getFullYear()} {branding.orgName} · Projeto SOPHIIA
+        </p>
       </footer>
     </div>
   );

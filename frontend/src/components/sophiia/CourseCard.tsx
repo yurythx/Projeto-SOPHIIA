@@ -14,7 +14,11 @@ export function CourseCard({ course }: { course: MyCourseItem }) {
       href={`/portal/curso/${course.version_id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-surface-border bg-surface transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <CourseCover id={course.course_id} systemName={course.system_name} className="aspect-video w-full">
+      <CourseCover
+        id={course.course_id}
+        systemName={course.system_name}
+        className="aspect-video w-full"
+      >
         {course.is_completed && (
           <span className="absolute right-2 top-2 flex items-center gap-1 rounded-full bg-white/95 px-2 py-0.5 text-[10px] font-bold text-success-strong">
             <CheckCircle2 className="h-3 w-3" /> Concluído

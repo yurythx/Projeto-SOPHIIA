@@ -37,8 +37,7 @@ export function PortalClient() {
     const q = query.trim().toLowerCase();
     if (q)
       list = list.filter(
-        (c) =>
-          c.title.toLowerCase().includes(q) || c.system_name.toLowerCase().includes(q),
+        (c) => c.title.toLowerCase().includes(q) || c.system_name.toLowerCase().includes(q),
       );
     const sorted = [...list];
     if (sort === "progress") sorted.sort((a, b) => b.progress_percentage - a.progress_percentage);

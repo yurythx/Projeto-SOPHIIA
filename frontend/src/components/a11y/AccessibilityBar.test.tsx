@@ -77,7 +77,10 @@ describe("AccessibilityBar — atalhos de salto", () => {
       "1",
     );
     expect(screen.getByRole("link", { name: /Ir para o menu/ })).toHaveAttribute("accesskey", "2");
-    expect(screen.getByRole("link", { name: /Ir para o rodapé/ })).toHaveAttribute("accesskey", "4");
+    expect(screen.getByRole("link", { name: /Ir para o rodapé/ })).toHaveAttribute(
+      "accesskey",
+      "4",
+    );
   });
 
   it("re-checa as âncoras quando a rota muda", async () => {

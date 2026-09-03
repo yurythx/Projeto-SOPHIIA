@@ -85,11 +85,8 @@ jobs:
       - run: npm run typecheck
       - run: npm test
 
-      # Prettier ainda não passou no repo inteiro (dívida conhecida) —
-      # informativo até um PR de formatação dedicado.
-      - name: prettier (informativo)
+      - name: prettier
         run: npm run format:check
-        continue-on-error: true
 
       - name: next build
         run: npm run build

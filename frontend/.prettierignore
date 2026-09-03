@@ -1,0 +1,17 @@
+# Gerado / vendorizado — Prettier não deve tocar.
+node_modules/
+.next/
+out/
+coverage/
+test-results/
+playwright-report/
+blob-report/
+playwright/.cache/
+
+# Contratos Pact — escritos pelo teste de consumidor, não à mão.
+pacts/
+
+# Lockfile e artefatos.
+package-lock.json
+next-env.d.ts
+*.tsbuildinfo

@@ -47,11 +47,11 @@ export function AccessibilityBar({
   initialFontScale?: number;
   initialOrgName?: string;
 }) {
-  const branding = useSyncExternalStore(
-    subscribeBranding,
-    getBrandingSnapshot,
-    () => ({ ...getBrandingSnapshot(), highContrast: initialHighContrast, orgName: initialOrgName })
-  );
+  const branding = useSyncExternalStore(subscribeBranding, getBrandingSnapshot, () => ({
+    ...getBrandingSnapshot(),
+    highContrast: initialHighContrast,
+    orgName: initialOrgName,
+  }));
 
   const highContrast = branding.highContrast;
 

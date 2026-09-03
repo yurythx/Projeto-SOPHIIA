@@ -42,7 +42,10 @@ export type SophiiaRole = (typeof SOPHIIA_ROLES)[keyof typeof SOPHIIA_ROLES];
  * Verifica se um usuário possui pelo menos uma das roles exigidas.
  * Nota: `sophiia-admin` tem acesso irrestrito por padrão nesta função.
  */
-export function hasRequiredRole(userRoles: string[] = [], requiredRoles: SophiiaRole[] = []): boolean {
+export function hasRequiredRole(
+  userRoles: string[] = [],
+  requiredRoles: SophiiaRole[] = [],
+): boolean {
   if (requiredRoles.length === 0) return true; // Sem restrições
   if (userRoles.includes(SOPHIIA_ROLES.ADMIN)) return true; // Admin acessa tudo
 

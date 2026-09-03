@@ -27,34 +27,37 @@ export default async function IntegracoesPage() {
   }
 
   return (
-    <RoleGate allowedRoles={[SOPHIIA_ROLES.ADMIN, SOPHIIA_ROLES.INTEGRATION_MANAGER, SOPHIIA_ROLES.AUDITOR]} showErrorPanel>
-    <div className="flex flex-col gap-6">
-      <PageHeader
-        eyebrow="Sistemas externos"
-        title="Integrações"
-        subtitle="Sistemas aos quais o Projeto SOPHIIA se conecta — clique em um para configurar e testar."
-      />
+    <RoleGate
+      allowedRoles={[SOPHIIA_ROLES.ADMIN, SOPHIIA_ROLES.INTEGRATION_MANAGER, SOPHIIA_ROLES.AUDITOR]}
+      showErrorPanel
+    >
+      <div className="flex flex-col gap-6">
+        <PageHeader
+          eyebrow="Sistemas externos"
+          title="Integrações"
+          subtitle="Sistemas aos quais o Projeto SOPHIIA se conecta — clique em um para configurar e testar."
+        />
 
-      {errorMessage && <ErrorState message={errorMessage} />}
+        {errorMessage && <ErrorState message={errorMessage} />}
 
-      {integrations && (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          {integrations.map((integration) => (
-            <IntegrationCard
-              key={integration.id}
-              integration={integration}
-              extra={
-                <Link href={`/integracoes/${integration.key}`}>
-                  <Button size="sm" variant="ghost">
-                    Ver detalhes
-                  </Button>
-                </Link>
-              }
-            />
-          ))}
-        </div>
-      )}
-    </div>
+        {integrations && (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {integrations.map((integration) => (
+              <IntegrationCard
+                key={integration.id}
+                integration={integration}
+                extra={
+                  <Link href={`/integracoes/${integration.key}`}>
+                    <Button size="sm" variant="ghost">
+                      Ver detalhes
+                    </Button>
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </div>
     </RoleGate>
   );
 }

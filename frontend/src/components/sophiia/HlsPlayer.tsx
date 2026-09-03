@@ -85,12 +85,7 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
   return (
     <div className={className}>
       <div className="relative">
-        <video
-          ref={videoRef}
-          controls
-          playsInline
-          className="aspect-video w-full bg-black"
-        />
+        <video ref={videoRef} controls playsInline className="aspect-video w-full bg-black" />
         <div className="pointer-events-none absolute right-2 top-2 flex gap-0.5 rounded-md bg-black/60 p-0.5 text-[11px] font-semibold backdrop-blur">
           {SPEEDS.map((s) => (
             <button

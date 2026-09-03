@@ -22,8 +22,11 @@ export const metadata: Metadata = {
 };
 
 async function getCertificate(token: string): Promise<Certificate | null> {
-  const url = new URL(`/api/v1/sophiia/public/certificates/validate/${encodeURIComponent(token)}`, BACKEND_INTERNAL_URL);
-  
+  const url = new URL(
+    `/api/v1/sophiia/public/certificates/validate/${encodeURIComponent(token)}`,
+    BACKEND_INTERNAL_URL,
+  );
+
   try {
     const res = await fetch(url, { cache: "no-store" });
     if (!res.ok) return null;
@@ -34,7 +37,11 @@ async function getCertificate(token: string): Promise<Certificate | null> {
   }
 }
 
-export default async function ValidateCertificatePage({ params }: { params: Promise<{ token: string }> }) {
+export default async function ValidateCertificatePage({
+  params,
+}: {
+  params: Promise<{ token: string }>;
+}) {
   const { token } = await params;
   const cert = await getCertificate(token);
 
@@ -56,7 +63,11 @@ export default async function ValidateCertificatePage({ params }: { params: Prom
         </div>
 
         {!cert && (
-          <div role="alert" aria-live="assertive" className="flex items-center gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger-strong">
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="flex items-center gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4 text-danger-strong"
+          >
             <XCircle className="h-6 w-6 shrink-0" />
             <div>
               <p className="font-semibold">Certificado Inválido ou Não Encontrado</p>
@@ -70,17 +81,23 @@ export default async function ValidateCertificatePage({ params }: { params: Prom
         {cert && (
           <div className="space-y-6">
             {cert.is_valid ? (
-              <div role="alert" aria-live="assertive" className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-success-strong">
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="flex items-center gap-3 rounded-xl border border-success/30 bg-success/10 p-4 text-success-strong"
+              >
                 <CheckCircle2 className="h-6 w-6 shrink-0" />
                 <div>
                   <p className="font-semibold">Certificado Autêntico e Válido</p>
-                  <p className="text-xs">
-                    Emitido digitalmente via SOPHIIA Platform
-                  </p>
+                  <p className="text-xs">Emitido digitalmente via SOPHIIA Platform</p>
                 </div>
               </div>
             ) : (
-              <div role="alert" aria-live="assertive" className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-warning-strong">
+              <div
+                role="alert"
+                aria-live="assertive"
+                className="flex items-center gap-3 rounded-xl border border-warning/40 bg-warning/10 p-4 text-warning-strong"
+              >
                 <XCircle className="h-6 w-6 shrink-0" />
                 <div>
                   <p className="font-semibold">Certificado Revogado</p>

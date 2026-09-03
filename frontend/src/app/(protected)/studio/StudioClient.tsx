@@ -158,16 +158,10 @@ function StudioCourseCard({ course }: { course: AdminCourseItem }) {
       href={`/studio/curso/${course.id}`}
       className="group flex flex-col overflow-hidden rounded-xl border border-surface-border bg-surface transition-all hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-primary"
     >
-      <CourseCover
-        id={course.id}
-        systemName={course.system_name}
-        className="aspect-video w-full"
-      >
+      <CourseCover id={course.id} systemName={course.system_name} className="aspect-video w-full">
         <span
           className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-bold ${
-            course.is_published
-              ? "bg-white/95 text-success-strong"
-              : "bg-warning/90 text-black"
+            course.is_published ? "bg-white/95 text-success-strong" : "bg-warning/90 text-black"
           }`}
         >
           {course.is_published ? course.version_tag || "publicado" : "rascunho"}
@@ -198,8 +192,8 @@ function StudioCourseCard({ course }: { course: AdminCourseItem }) {
           </div>
           <div className="flex items-center justify-between text-[11px] text-muted">
             <span className="flex items-center gap-1">
-              <Video className="h-3 w-3" /> {course.videos_ready_count}/{course.lessons_count} vídeos
-              prontos
+              <Video className="h-3 w-3" /> {course.videos_ready_count}/{course.lessons_count}{" "}
+              vídeos prontos
             </span>
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" /> {course.workload_hours}h

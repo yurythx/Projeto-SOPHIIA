@@ -40,10 +40,7 @@ const telemetryFetcher = (url: string) =>
 // Metadados estáticos por dependência (o nome vem do backend em
 // health.services). Status e latência são SEMPRE do backend — nada
 // hardcoded aqui.
-const SERVICE_META: Record<
-  string,
-  { label: string; description: string; icon: typeof Server }
-> = {
+const SERVICE_META: Record<string, { label: string; description: string; icon: typeof Server }> = {
   postgres: {
     label: "PostgreSQL",
     description: "Banco relacional principal — catálogo, progresso, certificados e o Outbox.",
@@ -71,7 +68,9 @@ function toIndicator(status: string): IntegrationStatus {
 }
 
 export function PlatformMonitoringDashboard() {
-  const [lastCheckTime, setLastCheckTime] = useState<string>(new Date().toLocaleTimeString("pt-BR"));
+  const [lastCheckTime, setLastCheckTime] = useState<string>(
+    new Date().toLocaleTimeString("pt-BR"),
+  );
 
   const {
     data: health,
@@ -156,9 +155,21 @@ export function PlatformMonitoringDashboard() {
         <KpiCard
           label="Dependências"
           value={services.length ? `${okCount}/${services.length} ativas` : "—"}
-          hint={error ? "endpoint de health sem resposta" : isHealthy ? "todas alcançáveis" : "há dependência fora"}
+          hint={
+            error
+              ? "endpoint de health sem resposta"
+              : isHealthy
+                ? "todas alcançáveis"
+                : "há dependência fora"
+          }
           icon={CheckCircle2}
-          tone={error ? "danger" : okCount === services.length && services.length ? "success" : "warning"}
+          tone={
+            error
+              ? "danger"
+              : okCount === services.length && services.length
+                ? "success"
+                : "warning"
+          }
         />
         <KpiCard
           label="Latência média"
@@ -176,11 +187,7 @@ export function PlatformMonitoringDashboard() {
         />
         <KpiCard
           label="Última verificação"
-          value={
-            health?.timestamp
-              ? new Date(health.timestamp).toLocaleTimeString("pt-BR")
-              : "—"
-          }
+          value={health?.timestamp ? new Date(health.timestamp).toLocaleTimeString("pt-BR") : "—"}
           hint="carimbo do backend"
           icon={Clock}
           tone="accent"
@@ -233,7 +240,9 @@ export function PlatformMonitoringDashboard() {
                 {telemetry ? telemetry.total_watch_hours.toLocaleString("pt-BR") : "--"}{" "}
                 <span className="text-lg font-medium text-muted">h</span>
               </div>
-              <p className="mt-1 text-xs text-muted">Tempo total de vídeo entregue na plataforma.</p>
+              <p className="mt-1 text-xs text-muted">
+                Tempo total de vídeo entregue na plataforma.
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -316,17 +325,21 @@ export function PlatformMonitoringDashboard() {
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-muted">Transporte</span>
-                <span className="font-semibold text-foreground">RabbitMQ (LISTEN/NOTIFY + relay)</span>
+                <span className="font-semibold text-foreground">
+                  RabbitMQ (LISTEN/NOTIFY + relay)
+                </span>
               </div>
               <div className="flex flex-col gap-0.5">
                 <span className="text-muted">Falhas</span>
-                <span className="font-semibold text-foreground">Backoff exponencial + DLQ por fila</span>
+                <span className="font-semibold text-foreground">
+                  Backoff exponencial + DLQ por fila
+                </span>
               </div>
             </div>
             <p className="leading-relaxed text-muted">
-              As mutações e a emissão de eventos são gravadas na mesma transação SQL. O
-              worker de Outbox varre os eventos não publicados e os distribui ao RabbitMQ —
-              resiliente a falhas de rede.
+              As mutações e a emissão de eventos são gravadas na mesma transação SQL. O worker de
+              Outbox varre os eventos não publicados e os distribui ao RabbitMQ — resiliente a
+              falhas de rede.
             </p>
           </CardContent>
         </Card>
@@ -363,7 +376,9 @@ function KpiCard({
           <span className="truncate text-xl font-bold text-foreground">{value}</span>
           <span className="text-[11px] text-muted">{hint}</span>
         </div>
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneClass}`}>
+        <div
+          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${toneClass}`}
+        >
           <Icon size={20} />
         </div>
       </CardContent>

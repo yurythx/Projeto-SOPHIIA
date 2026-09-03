@@ -36,7 +36,12 @@ function mk(over: Partial<MyCourseItem>): MyCourseItem {
 }
 
 const COURSES = [
-  mk({ title: "Introdução à LGPD", system_name: "RH", progress_percentage: 0, completed_lessons: 0 }),
+  mk({
+    title: "Introdução à LGPD",
+    system_name: "RH",
+    progress_percentage: 0,
+    completed_lessons: 0,
+  }),
   mk({
     title: "Orçamento Público",
     system_name: "Finanças",

@@ -83,7 +83,11 @@ export function InlineAdd({
           aria-label="Confirmar"
           className="rounded p-1 text-success-strong hover:bg-success/10 disabled:opacity-40"
         >
-          {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          {busy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : (
+            <Check className="h-3.5 w-3.5" />
+          )}
         </button>
         <button
           type="button"

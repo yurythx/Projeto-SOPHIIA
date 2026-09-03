@@ -11,7 +11,7 @@ import { accessTokenUsable } from "@/lib/auth/tokenState";
 export async function recordHeartbeatAction(
   courseVersionId: string,
   lessonId: string,
-  positionSeconds: number
+  positionSeconds: number,
 ) {
   const token = await getServerToken();
 
@@ -49,12 +49,15 @@ export async function completeLessonAction(lessonId: string) {
     throw new Error("Unauthorized");
   }
 
-  const res = await fetch(`${BACKEND_INTERNAL_URL}/api/v1/sophiia/portal/lessons/${lessonId}/complete`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token.accessToken}`,
+  const res = await fetch(
+    `${BACKEND_INTERNAL_URL}/api/v1/sophiia/portal/lessons/${lessonId}/complete`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token.accessToken}`,
+      },
     },
-  });
+  );
 
   if (!res.ok) {
     throw new Error("Failed to complete lesson");

@@ -19,13 +19,45 @@ const links: {
   allowedRoles?: SophiiaRole[];
   match?: string[];
 }[] = [
-  { href: "/dashboard", label: "Visão Geral", icon: LayoutDashboard, allowedRoles: [SOPHIIA_ROLES.ADMIN] },
+  {
+    href: "/dashboard",
+    label: "Visão Geral",
+    icon: LayoutDashboard,
+    allowedRoles: [SOPHIIA_ROLES.ADMIN],
+  },
   { href: "/portal", label: "Portal SOPHIIA", icon: GraduationCap, flag: "module_sophiia_enabled" },
-  { href: "/studio", label: "Studio Instrutor", icon: Video, flag: "module_sophiia_enabled", allowedRoles: [SOPHIIA_ROLES.INSTRUCTOR, SOPHIIA_ROLES.ADMIN] },
-  { href: "/exemplos", label: "Módulo Modelo", icon: Box, flag: "module_exemplos_enabled", allowedRoles: [SOPHIIA_ROLES.ADMIN] },
-  { href: "/monitoramento", label: "Monitoramento", icon: Activity, allowedRoles: [SOPHIIA_ROLES.ADMIN] },
-  { href: "/integracoes", label: "Integrações", icon: Plug, allowedRoles: [SOPHIIA_ROLES.ADMIN, SOPHIIA_ROLES.INTEGRATION_MANAGER, SOPHIIA_ROLES.AUDITOR] },
-  { href: "/configuracao", label: "Configurações", icon: Settings, allowedRoles: [SOPHIIA_ROLES.ADMIN] },
+  {
+    href: "/studio",
+    label: "Studio Instrutor",
+    icon: Video,
+    flag: "module_sophiia_enabled",
+    allowedRoles: [SOPHIIA_ROLES.INSTRUCTOR, SOPHIIA_ROLES.ADMIN],
+  },
+  {
+    href: "/exemplos",
+    label: "Módulo Modelo",
+    icon: Box,
+    flag: "module_exemplos_enabled",
+    allowedRoles: [SOPHIIA_ROLES.ADMIN],
+  },
+  {
+    href: "/monitoramento",
+    label: "Monitoramento",
+    icon: Activity,
+    allowedRoles: [SOPHIIA_ROLES.ADMIN],
+  },
+  {
+    href: "/integracoes",
+    label: "Integrações",
+    icon: Plug,
+    allowedRoles: [SOPHIIA_ROLES.ADMIN, SOPHIIA_ROLES.INTEGRATION_MANAGER, SOPHIIA_ROLES.AUDITOR],
+  },
+  {
+    href: "/configuracao",
+    label: "Configurações",
+    icon: Settings,
+    allowedRoles: [SOPHIIA_ROLES.ADMIN],
+  },
 ];
 
 function matchesPath(pathname: string, prefix: string): boolean {
@@ -55,10 +87,10 @@ export function Sidebar({ collapsed, mobileOpen, onCloseMobile }: SidebarProps) 
   const visibleLinks = links.filter((l) => {
     // Esconde se a feature flag estiver desligada
     if (l.flag && disabledFlags.has(l.flag)) return false;
-    
+
     // Esconde se o usuário não tiver as roles necessárias
     if (l.allowedRoles && !hasRequiredRole(session?.user?.roles, l.allowedRoles)) return false;
-    
+
     return true;
   });
 

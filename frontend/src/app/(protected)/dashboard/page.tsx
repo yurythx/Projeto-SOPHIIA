@@ -124,146 +124,146 @@ export default async function DashboardOverviewPage() {
 
   return (
     <RoleGate allowedRoles={[SOPHIIA_ROLES.ADMIN]} showErrorPanel>
-    <div className="flex flex-col gap-8 pb-10">
-      <PageHeader
-        eyebrow={`Projeto SOPHIIA · ${competencia}`}
-        title={firstName ? `Bem-vindo(a), ${firstName}` : "Visão geral"}
-        subtitle="Acompanhe a capacitação dos servidores, as integrações e a saúde da plataforma."
-        actions={
-          <>
-            <Link href="/portal">
-              <Button size="sm" className="gap-2">
-                <GraduationCap size={16} />
-                Ir para o Portal
-              </Button>
-            </Link>
-            <Link href="/configuracao">
-              <Button size="sm" variant="secondary" className="gap-2">
-                <Settings size={16} />
-                Configurações
-              </Button>
-            </Link>
-          </>
-        }
-      />
+      <div className="flex flex-col gap-8 pb-10">
+        <PageHeader
+          eyebrow={`Projeto SOPHIIA · ${competencia}`}
+          title={firstName ? `Bem-vindo(a), ${firstName}` : "Visão geral"}
+          subtitle="Acompanhe a capacitação dos servidores, as integrações e a saúde da plataforma."
+          actions={
+            <>
+              <Link href="/portal">
+                <Button size="sm" className="gap-2">
+                  <GraduationCap size={16} />
+                  Ir para o Portal
+                </Button>
+              </Link>
+              <Link href="/configuracao">
+                <Button size="sm" variant="secondary" className="gap-2">
+                  <Settings size={16} />
+                  Configurações
+                </Button>
+              </Link>
+            </>
+          }
+        />
 
-      {/* Indicadores da plataforma */}
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
-          Indicadores da plataforma
-        </h2>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <PlatformStatCell
-            label="Capacitação"
-            value="Módulo SOPHIIA"
-            hint="Portal · Studio · Validação pública"
-            icon={GraduationCap}
-          />
-          <PlatformStatCell
-            label="Autenticação"
-            value="OIDC + SSO"
-            hint="Keycloak & login local RSA"
-            icon={Shield}
-          />
-          <PlatformStatCell
-            label="Mensageria"
-            value="Outbox EventBus"
-            hint="PostgreSQL + RabbitMQ DLQ"
-            icon={Zap}
-          />
-          <PlatformStatCell
-            label="Vídeo"
-            value="HLS adaptativo"
-            hint="FFmpeg → MinIO (S3)"
-            icon={Video}
-          />
-        </div>
-      </section>
-
-      {/* Áreas e administração */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold">Áreas e administração</h2>
-            <p className="text-xs text-muted">
-              As áreas do SOPHIIA e a administração da plataforma.
-            </p>
+        {/* Indicadores da plataforma */}
+        <section className="flex flex-col gap-3">
+          <h2 className="text-xs font-semibold uppercase tracking-widest text-muted">
+            Indicadores da plataforma
+          </h2>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <PlatformStatCell
+              label="Capacitação"
+              value="Módulo SOPHIIA"
+              hint="Portal · Studio · Validação pública"
+              icon={GraduationCap}
+            />
+            <PlatformStatCell
+              label="Autenticação"
+              value="OIDC + SSO"
+              hint="Keycloak & login local RSA"
+              icon={Shield}
+            />
+            <PlatformStatCell
+              label="Mensageria"
+              value="Outbox EventBus"
+              hint="PostgreSQL + RabbitMQ DLQ"
+              icon={Zap}
+            />
+            <PlatformStatCell
+              label="Vídeo"
+              value="HLS adaptativo"
+              hint="FFmpeg → MinIO (S3)"
+              icon={Video}
+            />
           </div>
-        </div>
+        </section>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          {modules.map((mod) => {
-            const Icon = mod.icon;
-            return (
-              <Card
-                key={mod.id}
-                className="relative overflow-hidden transition-all hover:border-primary/50 hover:shadow-md"
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                      <Icon size={22} />
+        {/* Áreas e administração */}
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Áreas e administração</h2>
+              <p className="text-xs text-muted">
+                As áreas do SOPHIIA e a administração da plataforma.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-5 sm:grid-cols-2">
+            {modules.map((mod) => {
+              const Icon = mod.icon;
+              return (
+                <Card
+                  key={mod.id}
+                  className="relative overflow-hidden transition-all hover:border-primary/50 hover:shadow-md"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Icon size={22} />
+                      </div>
+                      <span className="rounded-md bg-surface-border/60 px-2 py-1 text-[11px] font-medium text-foreground">
+                        {mod.tag}
+                      </span>
                     </div>
-                    <span className="rounded-md bg-surface-border/60 px-2 py-1 text-[11px] font-medium text-foreground">
-                      {mod.tag}
+                    <CardTitle className="pt-2 text-base font-bold">{mod.title}</CardTitle>
+                    <CardDescription className="text-xs leading-relaxed text-muted">
+                      {mod.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="mt-2 flex items-center justify-between border-t border-surface-border/50 py-3 pt-0 text-xs">
+                    <span className="flex items-center gap-1.5 font-medium text-success-strong">
+                      <CheckCircle2 size={14} />
+                      {mod.status}
                     </span>
-                  </div>
-                  <CardTitle className="pt-2 text-base font-bold">{mod.title}</CardTitle>
-                  <CardDescription className="text-xs leading-relaxed text-muted">
-                    {mod.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="mt-2 flex items-center justify-between border-t border-surface-border/50 py-3 pt-0 text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-success-strong">
-                    <CheckCircle2 size={14} />
-                    {mod.status}
-                  </span>
-                  <Link
-                    href={mod.href}
-                    className="flex items-center gap-1 font-semibold text-primary hover:underline"
-                  >
-                    Acessar <ArrowRight size={14} />
-                  </Link>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </section>
+                    <Link
+                      href={mod.href}
+                      className="flex items-center gap-1 font-semibold text-primary hover:underline"
+                    >
+                      Acessar <ArrowRight size={14} />
+                    </Link>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
 
-      {/* Status de Conectividade e Integrações */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Status de serviços & integrações</h2>
-          <Link href="/integracoes" className="text-xs text-primary hover:underline">
-            Ver todas →
-          </Link>
-        </div>
-        <Card>
-          <CardContent className="pt-4">
-            {errorMessage && <ErrorState message={errorMessage} />}
-            {integrations && (
-              <ul className="flex flex-col divide-y divide-surface-border">
-                {integrations.map((integration) => (
-                  <li key={integration.id} className="flex items-center justify-between py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface-border/40 text-foreground">
-                        <Plug size={16} />
+        {/* Status de Conectividade e Integrações */}
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Status de serviços & integrações</h2>
+            <Link href="/integracoes" className="text-xs text-primary hover:underline">
+              Ver todas →
+            </Link>
+          </div>
+          <Card>
+            <CardContent className="pt-4">
+              {errorMessage && <ErrorState message={errorMessage} />}
+              {integrations && (
+                <ul className="flex flex-col divide-y divide-surface-border">
+                  {integrations.map((integration) => (
+                    <li key={integration.id} className="flex items-center justify-between py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-surface-border/40 text-foreground">
+                          <Plug size={16} />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold">{integration.name}</p>
+                          <p className="text-xs text-muted">Serviço externo de apoio</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-semibold">{integration.name}</p>
-                        <p className="text-xs text-muted">Serviço externo de apoio</p>
-                      </div>
-                    </div>
-                    <StatusIndicator status={integration.status} />
-                  </li>
-                ))}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-    </div>
+                      <StatusIndicator status={integration.status} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+      </div>
     </RoleGate>
   );
 }

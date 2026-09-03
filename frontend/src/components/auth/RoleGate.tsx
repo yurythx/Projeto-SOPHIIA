@@ -35,13 +35,13 @@ export async function RoleGate({ children, allowedRoles, showErrorPanel = false 
           <ShieldAlert className="mb-4 h-12 w-12 opacity-80" />
           <h2 className="text-lg font-bold">Acesso Negado</h2>
           <p className="mt-2 max-w-md text-sm opacity-80">
-            Você não possui as permissões necessárias (roles: {allowedRoles.join(" ou ")})
-            para acessar este painel. Caso acredite ser um erro, contate o administrador.
+            Você não possui as permissões necessárias (roles: {allowedRoles.join(" ou ")}) para
+            acessar este painel. Caso acredite ser um erro, contate o administrador.
           </p>
         </div>
       );
     }
-    
+
     // Redirecionamento silencioso (Padrão)
     redirect("/portal");
   }
