@@ -19,12 +19,18 @@ Rode os mesmos gates do CI (`.github/workflows/ci.yml`):
 
 | | Comando |
 |---|---|
-| Backend | `cd backend && gofmt -l . && go vet ./... && go test ./... -p 1 && go build ./...` |
+| Backend | `cd backend && gofmt -l . && go vet ./... && go build ./...` + `make backend-test` |
 | Frontend | `cd frontend && npm run lint && npm run typecheck && npm test && npm run build` |
 | Tudo | `make lint && make test` |
 
-- `go test` do backend precisa de um Postgres alcançável via
-  `TEST_DATABASE_URL` (senão os testes que tocam o banco são pulados).
+- `make backend-test` (= `./scripts/test-backend.sh`) sobe um Postgres
+  **descartável**, aplica as migrations e roda `go test ./... -p 1` contra
+  ele. Se `TEST_DATABASE_URL` já estiver definida, usa esse banco e não
+  sobe container.
+- **Não** aponte `TEST_DATABASE_URL` para o banco do `make dev-up`: os
+  testes que tocam o banco (outbox, configflags, integrations) assumem que
+  ninguém mais escreve na tabela durante o teste — com o stack no ar, o
+  worker e o backend contaminam o resultado.
 - E2E (`cd frontend && npm run test:e2e`) roda contra a stack real —
   suba `make dev-up` e exporte `E2E_ADMIN_USERNAME` / `E2E_ADMIN_PASSWORD`
   com o que o `make seed-admin` imprimiu. Passo a passo em

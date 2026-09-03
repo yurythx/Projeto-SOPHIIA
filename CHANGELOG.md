@@ -46,6 +46,10 @@ e-MAG/WCAG e VLibras). As entradas abaixo cobrem o que mudou desde então.
 - **Dependabot** e **CODEOWNERS**.
 - `CONTRIBUTING.md`, `SECURITY.md` e template de Pull Request.
 - `docs/e2e.md` e este `CHANGELOG.md`.
+- **`make backend-test`** (`scripts/test-backend.sh`) — sobe um Postgres
+  descartável, migra e roda `go test ./... -p 1` contra ele; respeita
+  `TEST_DATABASE_URL` quando já definida (CI). Evita a contaminação de rodar
+  os testes live-DB contra o banco do `make dev-up`.
 
 ### Alterado
 
@@ -73,6 +77,12 @@ e-MAG/WCAG e VLibras). As entradas abaixo cobrem o que mudou desde então.
 - **Studio — módulo sem lição sumia** da árvore de conteúdo (`JOIN` interno →
   `LEFT JOIN`), o que criava um beco sem saída ao tentar adicionar a primeira
   lição de um módulo novo.
+- **Testes live-DB do backend desalinhados do schema pós-migrations**:
+  `integrations/infrastructure` usava a chave `example-integration`/`diario-oficial`
+  (a semeada é `example-service`, migration 000041) e travava o `pool.Close()`
+  do cleanup por 10 min ao falhar com a transação aberta; `configflags`
+  esperava a flag `diario_oficial_scraping_enabled`, removida na migration
+  000045. Nunca haviam passado num banco totalmente migrado.
 - Upload de vídeo pedia o ID da lição em campo livre (colar UUID errado →
   404); o fluxo passou a derivar a lição do contexto da página do curso.
 - `UpdateVideoAssetResult`: erro de SQL "inconsistent types deduced for

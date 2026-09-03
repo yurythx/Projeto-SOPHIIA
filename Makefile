@@ -58,8 +58,8 @@ frontend-build:
 
 test: backend-test frontend-test ## Roda as suítes de teste do backend e do frontend
 
-backend-test:
-	cd backend && go test ./... -p 1
+backend-test: ## Suíte do backend contra um Postgres descartável (ou TEST_DATABASE_URL, se definida)
+	./scripts/test-backend.sh
 
 frontend-test:
 	cd frontend && npm test
