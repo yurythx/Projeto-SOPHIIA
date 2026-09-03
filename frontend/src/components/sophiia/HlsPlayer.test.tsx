@@ -8,8 +8,24 @@ import { HlsPlayer } from "./HlsPlayer";
 // interessa é quantas vezes o efeito de setup roda.
 vi.mock("hls.js", () => ({ default: { isSupported: () => false } }));
 
+// currentTime/duration com backing store (jsdom não implementa de verdade).
+function fakeMedia(video: HTMLVideoElement, duration: number) {
+  let ct = 0;
+  Object.defineProperty(video, "currentTime", {
+    get: () => ct,
+    set: (v: number) => {
+      ct = v;
+    },
+    configurable: true,
+  });
+  Object.defineProperty(video, "duration", { value: duration, configurable: true });
+}
+
 describe("HlsPlayer", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
 
   it("não recarrega o vídeo quando só as callbacks mudam de identidade", () => {
     const addSpy = vi.spyOn(window.HTMLMediaElement.prototype, "addEventListener");
@@ -47,5 +63,58 @@ describe("HlsPlayer", () => {
     video.dispatchEvent(new Event("ended"));
     expect(firstEnded).not.toHaveBeenCalled();
     expect(latestEnded).toHaveBeenCalledTimes(1);
+  });
+
+  describe("retomar posição (resumeKey)", () => {
+    it("retoma a posição salva quando o metadata carrega", () => {
+      window.localStorage.setItem("sophiia:resume:v:l", "30");
+      const { container } = render(
+        <HlsPlayer src="https://x/m.m3u8" resumeKey="sophiia:resume:v:l" />,
+      );
+      const video = container.querySelector("video")!;
+      fakeMedia(video, 100);
+
+      video.dispatchEvent(new Event("loadedmetadata"));
+      expect(video.currentTime).toBe(30);
+    });
+
+    it("não retoma se a posição salva está perto do fim", () => {
+      window.localStorage.setItem("sophiia:resume:v:l", "97");
+      const { container } = render(
+        <HlsPlayer src="https://x/m.m3u8" resumeKey="sophiia:resume:v:l" />,
+      );
+      const video = container.querySelector("video")!;
+      fakeMedia(video, 100);
+
+      video.dispatchEvent(new Event("loadedmetadata"));
+      expect(video.currentTime).toBe(0);
+    });
+
+    it("salva ao pausar e limpa ao terminar", () => {
+      const { container } = render(
+        <HlsPlayer src="https://x/m.m3u8" resumeKey="sophiia:resume:v:l" />,
+      );
+      const video = container.querySelector("video")!;
+      fakeMedia(video, 100);
+      video.currentTime = 42;
+
+      video.dispatchEvent(new Event("pause"));
+      expect(window.localStorage.getItem("sophiia:resume:v:l")).toBe("42");
+
+      video.dispatchEvent(new Event("ended"));
+      expect(window.localStorage.getItem("sophiia:resume:v:l")).toBeNull();
+    });
+
+    it("salva ao desmontar (sair da aula)", () => {
+      const { container, unmount } = render(
+        <HlsPlayer src="https://x/m.m3u8" resumeKey="sophiia:resume:v:l" />,
+      );
+      const video = container.querySelector("video")!;
+      fakeMedia(video, 100);
+      video.currentTime = 55;
+
+      unmount();
+      expect(window.localStorage.getItem("sophiia:resume:v:l")).toBe("55");
+    });
   });
 });

@@ -9,30 +9,69 @@ interface HlsPlayerProps {
   /** Chamado quando o vídeo termina. */
   onEnded?: () => void;
   className?: string;
+  /**
+   * Se definido, o player guarda a posição atual em localStorage sob essa
+   * chave e retoma dali ao montar de novo (ex: o servidor sai da aula e
+   * volta). Limpa a chave quando o vídeo termina.
+   */
+  resumeKey?: string;
 }
 
 const SPEEDS = [1, 1.25, 1.5, 2] as const;
+
+function readPos(key: string | undefined): number | null {
+  if (!key || typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(key);
+    if (raw == null) return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function writePos(key: string | undefined, seconds: number): void {
+  if (!key || typeof window === "undefined" || !Number.isFinite(seconds)) return;
+  try {
+    window.localStorage.setItem(key, String(Math.max(0, Math.round(seconds))));
+  } catch {
+    /* modo privado / cota — retomar posição não é essencial */
+  }
+}
+
+function clearPos(key: string | undefined): void {
+  if (!key || typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    /* ignore */
+  }
+}
 
 // HlsPlayer reproduz HLS adaptativo. Usa o suporte nativo do navegador
 // quando disponível (Safari/iOS) e cai para hls.js (Chrome/Firefox),
 // carregado sob demanda para não pesar no bundle das telas sem player.
 // Controles nativos (play/pause, volume, fullscreen) + botões de
 // velocidade (a barra nativa não expõe isso de forma confiável).
-export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProps) {
+export function HlsPlayer({ src, onProgress, onEnded, className, resumeKey }: HlsPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [speed, setSpeed] = useState(1);
   const lastReport = useRef(0);
+  const lastSave = useRef(0);
 
-  // Callbacks guardados em ref: a tela de aula re-renderiza o tempo todo
-  // (heartbeat, troca de aba, recolher a sidebar) e recria essas funções.
-  // Se elas entrassem nas deps do efeito de setup, cada re-render
+  // Callbacks/chave guardados em ref: a tela de aula re-renderiza o tempo
+  // todo (heartbeat, troca de aba, recolher a sidebar) e recria essas
+  // props. Se entrassem nas deps do efeito de setup, cada re-render
   // destruiria e recriaria o <video>/hls.js — o vídeo voltava ao início.
   const onProgressRef = useRef(onProgress);
   const onEndedRef = useRef(onEnded);
+  const resumeKeyRef = useRef(resumeKey);
   useEffect(() => {
     onProgressRef.current = onProgress;
     onEndedRef.current = onEnded;
+    resumeKeyRef.current = resumeKey;
   });
 
   // Só recarrega quando a fonte muda de verdade. Trocar de aula continua
@@ -43,7 +82,10 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
 
     setError(null);
     lastReport.current = 0;
+    lastSave.current = 0;
     let destroyed = false;
+    let ended = false;
+    let seeked = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let hls: any = null;
 
@@ -67,27 +109,60 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
         .catch(() => setError("Não foi possível inicializar o player."));
     }
 
+    function saveNow() {
+      if (video && !ended) writePos(resumeKeyRef.current, video.currentTime);
+    }
+
+    function handleLoadedMetadata() {
+      if (seeked || !video) return;
+      seeked = true;
+      const pos = readPos(resumeKeyRef.current);
+      const dur = video.duration;
+      // Retoma só se faz sentido: passou dos primeiros segundos e ainda
+      // falta um pedaço pro fim.
+      if (pos != null && Number.isFinite(dur) && pos > 3 && pos < dur - 5) {
+        try {
+          video.currentTime = pos;
+        } catch {
+          /* alguns navegadores recusam seek antes do 1º frame — tudo bem */
+        }
+      }
+    }
+
     function handleTimeUpdate() {
-      const report = onProgressRef.current;
-      if (!video || !report) return;
+      if (!video) return;
       const now = Date.now();
-      if (now - lastReport.current >= 10_000) {
+      if (now - lastSave.current >= 2_000) {
+        lastSave.current = now;
+        saveNow();
+      }
+      const report = onProgressRef.current;
+      if (report && now - lastReport.current >= 10_000) {
         lastReport.current = now;
         report(video.currentTime);
       }
     }
     function handleEnded() {
+      ended = true;
+      clearPos(resumeKeyRef.current);
       onProgressRef.current?.(video?.duration ?? 0);
       onEndedRef.current?.();
     }
 
+    video.addEventListener("loadedmetadata", handleLoadedMetadata);
     video.addEventListener("timeupdate", handleTimeUpdate);
+    video.addEventListener("pause", saveNow);
     video.addEventListener("ended", handleEnded);
+    window.addEventListener("pagehide", saveNow);
 
     return () => {
       destroyed = true;
+      saveNow(); // sair da aula / trocar de aula / fechar a aba
+      video.removeEventListener("loadedmetadata", handleLoadedMetadata);
       video.removeEventListener("timeupdate", handleTimeUpdate);
+      video.removeEventListener("pause", saveNow);
       video.removeEventListener("ended", handleEnded);
+      window.removeEventListener("pagehide", saveNow);
       if (hls) hls.destroy();
     };
   }, [src]);
@@ -99,8 +174,13 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
 
   return (
     <div className={className}>
-      <div className="relative">
-        <video ref={videoRef} controls playsInline className="aspect-video w-full bg-black" />
+      <div className="relative h-full">
+        <video
+          ref={videoRef}
+          controls
+          playsInline
+          className="h-full w-full bg-black object-contain"
+        />
         <div className="pointer-events-none absolute right-2 top-2 flex gap-0.5 rounded-md bg-black/60 p-0.5 text-[11px] font-semibold backdrop-blur">
           {SPEEDS.map((s) => (
             <button

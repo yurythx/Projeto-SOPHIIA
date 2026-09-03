@@ -21,6 +21,11 @@ import { hlsMasterUrl, sophiiaApi, type OutlineLesson } from "@/lib/api/sophiia"
 
 type Tab = "overview" | "materials" | "questions";
 
+// Altura máxima do palco do vídeo: viewport menos a barra e-MAG
+// (--a11y-bar-h), a topbar (--topbar-h) e uma folga pro cabeçalho da sala
+// + respiro. Mantém o player inteiro visível sem rolar (padrão Udemy).
+const PLAYER_MAX_H = "calc(100dvh - var(--a11y-bar-h) - var(--topbar-h) - 5rem)";
+
 function fmtDur(seconds: number): string {
   if (!seconds || seconds < 0) return "--:--";
   const m = Math.floor(seconds / 60);
@@ -139,22 +144,39 @@ export function ClassroomClient({ versionId }: { versionId: string }) {
             sidebarOpen ? "lg:border-r" : ""
           }`}
         >
-          {active?.video_status === "READY" && active.hls_master_key ? (
-            <HlsPlayer
-              key={active.id}
-              src={hlsMasterUrl(active.hls_master_key)}
-              onProgress={handleHeartbeat}
-              onEnded={() => handleComplete(active.id)}
-            />
-          ) : (
-            <div className="flex aspect-video w-full items-center justify-center bg-black text-xs text-white/60">
-              {active
-                ? active.has_video
-                  ? `Vídeo ${active.video_status ?? ""} — ainda não disponível`
-                  : "Esta aula não tem vídeo"
-                : "Carregando…"}
+          {/* Palco do vídeo estilo Udemy: a altura nunca passa da viewport
+              (menos a barra e-MAG + a topbar + o cabeçalho da sala), então
+              o player inteiro — controles incluídos — cabe sem rolar. A
+              largura acompanha o 16:9 dessa altura e fica centrada; a
+              sobra lateral é preta. */}
+          <div className="flex justify-center bg-black">
+            <div
+              className="relative aspect-video w-full min-h-[180px]"
+              style={{
+                maxHeight: PLAYER_MAX_H,
+                maxWidth: `calc(${PLAYER_MAX_H} * 16 / 9)`,
+              }}
+            >
+              {active?.video_status === "READY" && active.hls_master_key ? (
+                <HlsPlayer
+                  key={active.id}
+                  className="h-full w-full"
+                  src={hlsMasterUrl(active.hls_master_key)}
+                  resumeKey={`sophiia:resume:${versionId}:${active.id}`}
+                  onProgress={handleHeartbeat}
+                  onEnded={() => handleComplete(active.id)}
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-center text-xs text-white/60">
+                  {active
+                    ? active.has_video
+                      ? `Vídeo ${active.video_status ?? ""} — ainda não disponível`
+                      : "Esta aula não tem vídeo"
+                    : "Carregando…"}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           <div className="space-y-4 p-4 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
