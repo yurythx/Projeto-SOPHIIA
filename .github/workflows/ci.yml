@@ -139,7 +139,7 @@ jobs:
           image: sophiia-api:ci
           artifact-name: sbom-api.spdx.json
       - name: trivy (api)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           image-ref: sophiia-api:ci
@@ -147,7 +147,7 @@ jobs:
           severity: HIGH,CRITICAL
           ignore-unfixed: true
       - name: trivy (frontend)
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.36.0
         continue-on-error: true
         with:
           image-ref: sophiia-frontend:ci
