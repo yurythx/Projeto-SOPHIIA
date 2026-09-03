@@ -204,7 +204,7 @@ export default async function DashboardOverviewPage() {
                     <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
                       <Icon size={22} />
                     </div>
-                    <span className="rounded-md bg-surface-border/60 px-2 py-1 text-[11px] font-medium text-muted">
+                    <span className="rounded-md bg-surface-border/60 px-2 py-1 text-[11px] font-medium text-foreground">
                       {mod.tag}
                     </span>
                   </div>
@@ -214,7 +214,7 @@ export default async function DashboardOverviewPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="mt-2 flex items-center justify-between border-t border-surface-border/50 py-3 pt-0 text-xs">
-                  <span className="flex items-center gap-1.5 font-medium text-success">
+                  <span className="flex items-center gap-1.5 font-medium text-success-strong">
                     <CheckCircle2 size={14} />
                     {mod.status}
                   </span>

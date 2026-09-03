@@ -199,7 +199,7 @@ export function CourseStudioClient({ courseId }: { courseId: string }) {
                           <div className="flex items-center gap-2 text-sm">
                             <span className="font-medium text-foreground">{l.title}</span>
                             {l.is_mandatory && (
-                              <span className="rounded bg-surface-border/50 px-1.5 py-0.5 text-[10px] text-muted">
+                              <span className="rounded bg-surface-border/50 px-1.5 py-0.5 text-[10px] text-foreground">
                                 obrigatória
                               </span>
                             )}

@@ -31,6 +31,7 @@ export function CourseCard({ course }: { course: MyCourseItem }) {
         <div className="mt-auto space-y-1.5 pt-2">
           <div
             role="progressbar"
+            aria-label={`${pct}% concluído`}
             aria-valuenow={pct}
             aria-valuemin={0}
             aria-valuemax={100}

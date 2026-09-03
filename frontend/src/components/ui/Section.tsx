@@ -37,7 +37,7 @@ export function Section({
           <div className="flex items-center gap-2">
             <h2 className="text-base font-semibold text-foreground">{title}</h2>
             {collapsible && (
-              <span className="text-xs text-muted font-medium px-2 py-0.5 rounded bg-surface-border/50">
+              <span className="text-xs text-foreground font-medium px-2 py-0.5 rounded bg-surface-border/50">
                 {isExpanded ? "Expandido" : "Minimizado (Clique para abrir)"}
               </span>
             )}

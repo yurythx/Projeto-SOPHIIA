@@ -73,8 +73,8 @@ export function CatalogWizard({
                 ? "bg-primary text-primary-foreground"
                 : (["course", "version", "module", "lesson", "done"] as Step[]).indexOf(step) >
                     (["system", "course", "version", "module", "lesson"] as Step[]).indexOf(s)
-                  ? "bg-success/10 text-success"
-                  : "bg-surface-border/40 text-muted"
+                  ? "bg-success/10 text-success-strong"
+                  : "bg-surface-border/40 text-foreground"
             }`}
           >
             {label[s]}
@@ -231,7 +231,7 @@ export function CatalogWizard({
       )}
 
       {step === "done" && (
-        <p className="flex items-center gap-2 text-sm text-success">
+        <p className="flex items-center gap-2 text-sm text-success-strong">
           <Check className="h-4 w-4" /> Estrutura criada. O campo de upload já aponta para a nova
           lição.
         </p>

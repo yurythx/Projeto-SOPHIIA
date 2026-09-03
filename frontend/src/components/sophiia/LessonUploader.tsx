@@ -167,6 +167,7 @@ function Progress({
       </div>
       <div
         role="progressbar"
+        aria-label={label}
         aria-valuenow={clamped}
         aria-valuemin={0}
         aria-valuemax={100}

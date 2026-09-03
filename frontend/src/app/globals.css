@@ -34,7 +34,7 @@
   --surface: #ffffff;
   --surface-border: #e2e8f0;
   --surface-hover: #f1f5f9;
-  --muted: #64748b;
+  --muted: #5a6473;
   --primary: #1b365d;
   --primary-hover: #2563eb;
   --primary-foreground: #ffffff;
@@ -57,6 +57,7 @@
   --danger-strong: #b3160c;
   --success-strong: #05614a;
   --warning-strong: #955300;
+  --info-strong: #0369a1;
 
   --brand-panel: #0f1e36;
 
@@ -126,6 +127,7 @@
   --color-danger-strong: var(--danger-strong);
   --color-success-strong: var(--success-strong);
   --color-warning-strong: var(--warning-strong);
+  --color-info-strong: var(--info-strong);
   --color-brand-panel: var(--brand-panel);
   --color-seal: var(--seal);
 
@@ -178,6 +180,7 @@
     --danger-strong: #fca5a5;
     --success-strong: #6ee7b7;
     --warning-strong: #fcd34d;
+    --info-strong: #7dd3fc;
     --brand-panel: #070d18;
     --seal: #d1524a;
   }
@@ -201,6 +204,7 @@
   --danger-strong: #fca5a5;
   --success-strong: #6ee7b7;
   --warning-strong: #fcd34d;
+  --info-strong: #7dd3fc;
   --brand-panel: #070d18;
   --seal: #d1524a;
 }
@@ -212,7 +216,7 @@
   --surface: #ffffff;
   --surface-border: #e2e8f0;
   --surface-hover: #f1f5f9;
-  --muted: #64748b;
+  --muted: #5a6473;
   --primary: #1b365d;
   --primary-hover: #2563eb;
   --primary-foreground: #ffffff;
@@ -242,6 +246,7 @@
   --danger-strong: #ff0000;
   --success-strong: #00ff00;
   --warning-strong: #ffff00;
+  --info-strong: #00ffff;
   --brand-panel: #000000;
   /* No modo e-MAG a assinatura de marca cede à paleta rígida de alto
      contraste: a tinta de carimbo vira o mesmo amarelo dos outros
