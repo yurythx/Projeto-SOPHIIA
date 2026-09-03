@@ -175,6 +175,17 @@ E2E_ADMIN_USERNAME=admin E2E_ADMIN_PASSWORD='<seed-admin>' \
   npm run test:e2e
 ```
 
+### Carga (k6, contra o stack no ar)
+
+Smoke sob concorrência dos caminhos de leitura quentes. Não roda em PR — é
+`make load` local ou o workflow manual `load`. Detalhes em
+[`load/README.md`](load/README.md).
+
+```bash
+BASE_URL=http://localhost:8002 \
+K6_USERNAME=admin K6_PASSWORD='<seed-admin>' make load
+```
+
 ### Smoke end-to-end (contra o stack no ar)
 
 Exercita todo o fluxo do módulo — login → criação de catálogo → upload

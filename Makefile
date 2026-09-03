@@ -1,4 +1,4 @@
-.PHONY: dev up down logs build test lint format smoke \
+.PHONY: dev up down logs build test lint format smoke load \
 	dev-up migrate-up migrate-down migrate-status seed-admin gen-local-key \
 	backend-shell frontend-shell rabbitmq-status clean \
 	backend-build backend-test backend-lint backend-format \
@@ -109,6 +109,9 @@ gen-local-key: ## Gera a chave RSA de DEV do login local em secrets/ (não versi
 
 smoke: ## Smoke ponta a ponta do módulo SOPHIIA (exige o stack no ar + SOPHIIA_ADMIN_PASS)
 	./scripts/smoke-sophiia.sh
+
+load: ## Teste de carga baseline k6 (exige k6 no PATH, stack no ar e K6_PASSWORD) — ver load/README.md
+	k6 run load/k6/baseline.js
 
 ## --- Shells ---
 

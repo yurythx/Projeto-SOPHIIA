@@ -1,0 +1,74 @@
+name: load
+
+# Manual — o teste de carga NÃO roda em todo PR: subir a stack + k6 é lento
+# e o resultado é informativo, não um gate. Dispare em Actions › load ›
+# Run workflow. Detalhes em load/README.md.
+on:
+  workflow_dispatch:
+    inputs:
+      portal_duration:
+        description: "Janela em regime do cenário portal_read (ex: 40s, 3m)"
+        default: "40s"
+
+jobs:
+  k6:
+    name: k6 baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: prepara ambiente
+        run: |
+          cp .env.example .env
+          mkdir -p secrets
+          openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/local_auth_private_key.pem
+          chmod 600 secrets/local_auth_private_key.pem
+
+      - name: sobe a stack
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
+
+      - name: aguarda healthy
+        run: |
+          for i in $(seq 1 60); do
+            if [ "$(docker inspect -f '{{.State.Health.Status}}' projeto-sophiia-backend-api-1 2>/dev/null)" = "healthy" ]; then
+              echo "stack pronta"; exit 0
+            fi
+            sleep 5
+          done
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml ps
+          docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail 80
+          exit 1
+
+      - name: migrations + seed admin
+        run: |
+          go install github.com/pressly/goose/v3/cmd/goose@latest
+          "$(go env GOPATH)/bin/goose" -dir backend/migrations \
+            postgres "postgres://sophiia:sophiia_pass@localhost:5433/sophiia?sslmode=disable" up
+          cd backend && DB_HOST=localhost DB_PORT=5433 DB_NAME=sophiia DB_USER=sophiia DB_PASSWORD=sophiia_pass DB_SSLMODE=disable \
+            go run ./cmd/seedadmin --username k6 --password k6-load-fixed-not-secret
+
+      - uses: grafana/setup-k6-action@v1
+
+      - name: k6 run
+        env:
+          BASE_URL: http://localhost:8002
+          K6_USERNAME: k6
+          K6_PASSWORD: k6-load-fixed-not-secret
+          PORTAL_DURATION: ${{ inputs.portal_duration }}
+        run: k6 run load/k6/baseline.js --summary-export=k6-summary.json
+
+      - name: summary
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-summary
+          path: k6-summary.json
+          if-no-files-found: ignore
+
+      - name: logs da stack (em falha)
+        if: failure()
+        run: docker compose -f docker-compose.yml -f docker-compose.dev.yml logs --tail 200

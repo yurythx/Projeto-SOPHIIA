@@ -35,6 +35,10 @@ e-MAG/WCAG e VLibras). As entradas abaixo cobrem o que mudou desde então.
 - **Suíte E2E Playwright** contra a stack real e varredura `axe-core` de
   acessibilidade nas telas públicas e nas 9 telas autenticadas. Ver
   [`docs/e2e.md`](docs/e2e.md).
+- **Teste de carga baseline (k6)** — `load/k6/baseline.js`, alvo `make load` e
+  workflow manual `load` (`workflow_dispatch`). Smoke sob concorrência dos
+  caminhos de leitura quentes (healthchecks + jornada do servidor no Portal).
+  Ver [`load/README.md`](load/README.md).
 - **Rastreabilidade imagem↔commit**: labels OCI
   (`org.opencontainers.image.revision`) e `APP_REVISION` em runtime, carimbados
   a partir de `GIT_REVISION` no build.
