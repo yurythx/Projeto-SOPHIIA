@@ -1,8 +1,10 @@
 package app
 
 import (
+	"context"
 	"net/http"
 	"os"
+	"slices"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -31,11 +33,30 @@ func NewRouter(deps *Dependencies) chi.Router {
 		RequestTimeout: 30 * time.Second,
 	})
 
-	checks := []httpserver.Check{
+	// readyChecks: só as dependências HARD — o /ready gateia o roteamento
+	// de tráfego pelo orquestrador, e Redis/MinIO fora não impedem a
+	// aplicação de servir (degrada, não cai). readyChecks foi calibrado
+	// assim de propósito (ver dependencies.go: "Redis inalcançável no boot
+	// não impede o boot").
+	readyChecks := []httpserver.Check{
 		{Name: "postgres", Fn: database.Ping(deps.DB)},
 		{Name: "rabbitmq", Fn: deps.Messaging.Ping},
 	}
-	r.Get("/ready", httpserver.ReadyHandler(checks, 3*time.Second))
+	r.Get("/ready", httpserver.ReadyHandler(readyChecks, 3*time.Second))
+
+	// monitoringChecks: relatório completo para o painel /monitoramento —
+	// as hard + as soft (Redis, MinIO). É report, não probe: ver tudo,
+	// sem gatear roteamento.
+	monitoringChecks := slices.Clone(readyChecks)
+	if deps.Redis != nil {
+		monitoringChecks = append(monitoringChecks, httpserver.Check{
+			Name: "redis",
+			Fn:   func(ctx context.Context) error { return deps.Redis.Ping(ctx).Err() },
+		})
+	}
+	if deps.Storage != nil {
+		monitoringChecks = append(monitoringChecks, httpserver.Check{Name: "minio", Fn: deps.Storage.HealthCheck})
+	}
 
 	// WebSocket autenticado por ticket
 	r.Get("/ws", ws.UpgradeHandler(deps.Hub, deps.Tickets, deps.Config.FrontendURL, deps.Logger))
@@ -68,7 +89,7 @@ func NewRouter(deps *Dependencies) chi.Router {
 		// painel /monitoramento do frontend. Sob /api/v1 => já exige
 		// autenticação; o /ready na raiz continua servindo o orquestrador.
 		// APP_REVISION é carimbada na imagem pelo build (ver Dockerfile.api).
-		api.Get("/monitoring/health", httpserver.MonitoringHandler(checks, 3*time.Second, os.Getenv("APP_REVISION")))
+		api.Get("/monitoring/health", httpserver.MonitoringHandler(monitoringChecks, 3*time.Second, os.Getenv("APP_REVISION")))
 
 		usersTransport.RegisterRoutes(api, deps.Modules.Users.Handlers, deps.Logger)
 		integrationsTransport.RegisterRoutes(api, deps.Modules.Integrations.Handlers)

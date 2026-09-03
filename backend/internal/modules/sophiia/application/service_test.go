@@ -27,6 +27,7 @@ func (s *storageMock) Delete(context.Context, string, string) error             
 func (s *storageMock) PresignedPutURL(ctx context.Context, b, k string, d time.Duration) (string, error) {
 	return "https://fake-minio.local/put", nil
 }
+func (s *storageMock) HealthCheck(context.Context) error { return nil }
 func (s *storageMock) PresignedGetURL(ctx context.Context, b, k string, d time.Duration) (string, error) {
 	return "https://fake-minio.local/get", nil
 }

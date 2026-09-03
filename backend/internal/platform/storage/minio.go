@@ -53,6 +53,15 @@ func NewMinioProviderWithPresign(endpoint, publicEndpoint, accessKey, secretKey 
 	return &MinioProvider{client: client, presignClient: presignClient}, nil
 }
 
+// HealthCheck lista os buckets — a chamada mais barata que confirma que o
+// endpoint do MinIO responde e as credenciais valem.
+func (p *MinioProvider) HealthCheck(ctx context.Context) error {
+	if _, err := p.client.ListBuckets(ctx); err != nil {
+		return fmt.Errorf("storage: minio health check: %w", err)
+	}
+	return nil
+}
+
 // EnsureBucket verifica se um bucket existe e cria caso não exista.
 func (p *MinioProvider) EnsureBucket(ctx context.Context, bucketName string) error {
 	exists, err := p.client.BucketExists(ctx, bucketName)

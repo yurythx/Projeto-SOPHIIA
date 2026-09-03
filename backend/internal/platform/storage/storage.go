@@ -22,4 +22,8 @@ type Provider interface {
 
 	// PresignedGetURL gera uma URL temporária para o frontend visualizar/fazer download diretamente.
 	PresignedGetURL(ctx context.Context, bucketName, objectName string, expiry time.Duration) (string, error)
+
+	// HealthCheck faz uma chamada leve ao storage para confirmar que está
+	// alcançável — usado pelo relatório de /api/v1/monitoring/health.
+	HealthCheck(ctx context.Context) error
 }

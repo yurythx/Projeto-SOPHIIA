@@ -126,10 +126,11 @@ paths:
       summary: Relatório de saúde detalhado (painel administrativo)
       operationId: getMonitoringHealth
       description: >
-        Mesmas verificações do /ready, porém com latência por dependência,
-        timestamp e versão — consumido pelo painel /monitoramento do
-        frontend. Sempre responde 200 (é relatório, não probe); o campo
-        `status` diz `healthy` ou `degraded`. Autenticado (está sob /api/v1).
+        Relatório de saúde com latência por dependência, timestamp e a
+        revisão (commit) da imagem em execução — consumido pelo painel
+        /monitoramento. Verifica as hard deps do /ready (postgres,
+        rabbitmq) MAIS as soft deps (redis, minio). Sempre responde 200 (é
+        relatório, não probe); `status` diz `healthy` ou `degraded`.
       security: [{ bearerAuth: [] }]
       responses:
         "200":
@@ -140,10 +141,12 @@ paths:
                 data:
                   status: "degraded"
                   timestamp: "2026-09-02T14:31:21Z"
-                  version: ""
+                  version: "1d8165f"
                   services:
-                    postgres: { status: "ok", latency_ms: 3 }
-                    rabbitmq: { status: "unavailable", latency_ms: 3001 }
+                    postgres: { status: "ok", latency_ms: 1 }
+                    rabbitmq: { status: "ok", latency_ms: 0 }
+                    redis: { status: "ok", latency_ms: 0 }
+                    minio: { status: "unavailable", latency_ms: 3001 }
                 error: null
         "401":
           $ref: "#/components/responses/Unauthorized"

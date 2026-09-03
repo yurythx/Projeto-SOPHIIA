@@ -154,6 +154,8 @@ func (s *fakeStorage) PresignedGetURL(context.Context, string, string, time.Dura
 	return "https://minio.local/get", nil
 }
 
+func (s *fakeStorage) HealthCheck(context.Context) error { return nil }
+
 type fakeTranscoder struct{ err error }
 
 func (t *fakeTranscoder) TranscodeToHLS(_ context.Context, _, outputDir string, onProgress func(int)) (string, error) {
