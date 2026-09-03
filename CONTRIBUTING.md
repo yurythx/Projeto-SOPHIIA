@@ -27,14 +27,14 @@ Rode os mesmos gates do CI (`.github/workflows/ci.yml`):
   `TEST_DATABASE_URL` (senão os testes que tocam o banco são pulados).
 - E2E (`cd frontend && npm run test:e2e`) roda contra a stack real —
   suba `make dev-up` e exporte `E2E_ADMIN_USERNAME` / `E2E_ADMIN_PASSWORD`
-  com o que o `make seed-admin` imprimiu.
+  com o que o `make seed-admin` imprimiu. Passo a passo em
+  [`docs/e2e.md`](docs/e2e.md).
 
 ## Estilo
 
 - **Go**: `gofmt` (obrigatório no CI). `go vet` limpo.
-- **TS/React**: ESLint + `tsc --noEmit` limpos. Prettier ainda não passou
-  no repo inteiro — se tocar num arquivo, deixe-o no mínimo consistente
-  com o entorno; um PR de formatação geral é bem-vindo à parte.
+- **TS/React**: ESLint + `tsc --noEmit` limpos. Prettier é gate bloqueante
+  (`npm run format:check`); rode `npm run format` antes de commitar.
 - **Cor no frontend**: tudo sai dos tokens em `globals.css` — nunca hex
   solto num componente.
 

@@ -214,7 +214,6 @@ jobs:
       - name: prepara ambiente
         run: |
           cp .env.example .env
-          sed -i 's#MINIO_PUBLIC_URL=http://localhost:9000#MINIO_PUBLIC_URL=http://localhost:9002#' .env
           mkdir -p secrets
           openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out secrets/local_auth_private_key.pem
           chmod 600 secrets/local_auth_private_key.pem

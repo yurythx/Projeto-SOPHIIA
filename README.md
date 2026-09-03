@@ -162,6 +162,19 @@ cd backend && go test ./...     # inclui testes de orquestração dos workers (f
 cd frontend && npm test         # vitest
 ```
 
+### E2E (Playwright, contra o stack no ar)
+
+Suíte automatizada que roda contra a stack real (`make dev-up`) e é gate
+bloqueante no CI. Specs, variáveis (`E2E_ADMIN_*`, `PLAYWRIGHT_BASE_URL`) e
+solução de problemas em [`docs/e2e.md`](docs/e2e.md).
+
+```bash
+cd frontend
+PLAYWRIGHT_BASE_URL=http://localhost:3002 \
+E2E_ADMIN_USERNAME=admin E2E_ADMIN_PASSWORD='<seed-admin>' \
+  npm run test:e2e
+```
+
 ### Smoke end-to-end (contra o stack no ar)
 
 Exercita todo o fluxo do módulo — login → criação de catálogo → upload
@@ -175,7 +188,7 @@ certificado → validação pública.
 #   sudo apt install -y jq ffmpeg
 
 make dev-up          # stack desanexado, com portas de dev (pg:5433, mailpit:8025)
-make migrate-up      # aplica as 46 migrations (precisa do pg exposto -> use dev-up, não up)
+make migrate-up      # aplica as 47 migrations (precisa do pg exposto -> use dev-up, não up)
 make seed-admin      # anote a senha impressa
 
 SOPHIIA_ADMIN_PASS='<senha>' make smoke
