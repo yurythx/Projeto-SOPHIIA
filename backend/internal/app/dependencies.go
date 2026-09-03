@@ -195,6 +195,14 @@ func NewDependencies(ctx context.Context, component string) (*Dependencies, erro
 	}
 	cancelPing()
 
+	// Login local: 5 tentativas / 60s por IP em produção (antibrute), mas
+	// folgado fora de produção — a suíte E2E faz vários logins do mesmo
+	// IP em sequência e não deve esbarrar no limite.
+	localLoginBurst := 5
+	if cfg.App.Env != "production" {
+		localLoginBurst = 50
+	}
+
 	deps := &Dependencies{
 		Config:      cfg,
 		Logger:      logger,
@@ -218,11 +226,12 @@ func NewDependencies(ctx context.Context, component string) (*Dependencies, erro
 			//
 			// Equivalente a 1 req/s, burst 5: até 5 requisições a cada 5s.
 			WSTicket: ratelimit.NewPostgresLimiter(pool, 5, 5, "ws_ticket"),
-			// Mais apertado de propósito — até 5 tentativas de login a
-			// cada 60s por IP, para desacelerar força bruta de senha sem
-			// travar um usuário legítimo que só errou a senha uma ou
-			// duas vezes.
-			LocalLogin: ratelimit.NewPostgresLimiter(pool, 60, 5, "local_login"),
+			// Mais apertado de propósito — em produção, até 5 tentativas
+			// de login a cada 60s por IP, para desacelerar força bruta de
+			// senha sem travar um usuário legítimo que só errou a senha
+			// uma ou duas vezes. Fora de produção, folgado (ver
+			// localLoginBurst acima).
+			LocalLogin: ratelimit.NewPostgresLimiter(pool, 60, localLoginBurst, "local_login"),
 			// Até 40 escritas a cada 60s por usuário — muito acima do ritmo
 			// de um humano operando o Kanban / a fila de revisão.
 			Mutations: ratelimit.NewPostgresLimiter(pool, 60, 40, "mutations"),

@@ -49,7 +49,7 @@ test.describe("Sem flash de hidratação (branding + Sidebar)", () => {
     // deixa os document.cookie assentarem
     await expect
       .poll(async () => (await context.cookies()).map((c) => c.name))
-      .toEqual(expect.arrayContaining(["nova-branding", "nova-sidebar-collapsed"]));
+      .toEqual(expect.arrayContaining(["sophiia-branding", "sophiia-sidebar-collapsed"]));
 
     // --- HTML CRU do servidor: o que chega ANTES do React hidratar ---
     const html = await (await context.request.get("/dashboard")).text();

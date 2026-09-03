@@ -191,10 +191,9 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # E2E contra a stack REAL (docker compose). O job semeia o admin com uma
-  # senha fixa (cmd/seedadmin --password, ver comentários nos e2e specs).
-  # Não-bloqueante hoje: auth.spec (logout via Keycloak, ausente nesta
-  # stack) e hydration-no-flash (locator strict-mode) ainda falham — dívida
-  # rastreada. accessibility.spec + public-pages.spec passam.
+  # senha fixa (cmd/seedadmin --password, ver comentários nos e2e specs) e
+  # roda a suíte inteira: auth local, sem-flash-de-hidratação, páginas
+  # públicas e axe/e-MAG (rotas públicas + autenticadas). Bloqueante.
   e2e:
     name: e2e (playwright)
     runs-on: ubuntu-latest
@@ -248,7 +247,6 @@ jobs:
 
       - name: playwright
         working-directory: frontend
-        continue-on-error: true
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3002
         run: |
