@@ -13,7 +13,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
 
 # ---- runtime ----
-FROM alpine:3.20 AS runtime
+FROM alpine:3.24 AS runtime
 # GIT_REVISION vem do docker-compose (build.args) / Makefile — o contexto de
 # build é ./backend, sem o .git do repo, então a revisão não pode ser lida
 # aqui e entra como arg. Vai pro label OCI (rastreabilidade imagem↔commit) e
