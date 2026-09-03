@@ -95,7 +95,7 @@ export function ClassroomClient({ versionId }: { versionId: string }) {
   return (
     <div className="flex flex-col gap-0 rounded-xl border border-surface-border bg-surface">
       {/* Top bar */}
-      <div className="flex items-center gap-3 border-b border-surface-border px-4 py-2.5">
+      <div className="flex items-center gap-2 border-b border-surface-border px-3 py-2.5 sm:gap-3 sm:px-4">
         <Link
           href="/portal"
           className="flex shrink-0 items-center gap-1.5 text-xs font-medium text-muted transition-colors hover:text-foreground"
@@ -125,12 +125,20 @@ export function ClassroomClient({ versionId }: { versionId: string }) {
         </button>
       </div>
 
-      {/* Split view — 70/30 no desktop, empilhado no mobile */}
+      {/* Split view — ~70/30 no desktop, empilhado no mobile. items-start
+          para a sidebar poder ser mais curta que a coluna do player e
+          rolar sozinha (sticky). */}
       <div
-        className={`grid grid-cols-1 ${sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_22rem]" : ""}`}
+        className={`grid grid-cols-1 lg:items-start ${
+          sidebarOpen ? "lg:grid-cols-[minmax(0,1fr)_20rem] xl:grid-cols-[minmax(0,1fr)_23rem]" : ""
+        }`}
       >
         {/* ESQUERDA — player + detalhes */}
-        <div className="min-w-0 border-b border-surface-border lg:border-b-0 lg:border-r">
+        <div
+          className={`min-w-0 border-b border-surface-border lg:border-b-0 ${
+            sidebarOpen ? "lg:border-r" : ""
+          }`}
+        >
           {active?.video_status === "READY" && active.hls_master_key ? (
             <HlsPlayer
               key={active.id}
@@ -207,7 +215,7 @@ export function ClassroomClient({ versionId }: { versionId: string }) {
 
             {tab === "overview" &&
               (active?.markdown_content ? (
-                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-foreground">
                   {active.markdown_content}
                 </p>
               ) : (
@@ -225,16 +233,18 @@ export function ClassroomClient({ versionId }: { versionId: string }) {
           </div>
         </div>
 
-        {/* DIREITA — sidebar de conteúdo */}
+        {/* DIREITA — sidebar de conteúdo. No desktop fica fixa e rola
+            sozinha; no mobile (empilhada) a lista tem altura limitada pra
+            não gerar uma página infinita num curso com muitas aulas. */}
         {sidebarOpen && (
-          <aside className="min-w-0">
+          <aside className="min-w-0 lg:sticky lg:top-2 lg:self-start">
             <div className="flex items-center justify-between border-b border-surface-border px-4 py-3">
               <span className="text-sm font-bold text-foreground">Conteúdo do curso</span>
               <span className="text-[11px] text-muted">
                 {done}/{total}
               </span>
             </div>
-            <div className="divide-y divide-surface-border">
+            <div className="max-h-[65vh] divide-y divide-surface-border overflow-y-auto overscroll-contain lg:max-h-[calc(100vh-8rem)]">
               {modules.map((m) => {
                 const lessons = m.lessons ?? [];
                 const modSecs = lessons.reduce((a, l) => a + (l.duration_seconds || 0), 0);

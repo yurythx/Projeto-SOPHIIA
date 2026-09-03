@@ -14,9 +14,21 @@ vi.mock("@/app/actions/sophiia", () => ({
   completeLessonAction: vi.fn().mockResolvedValue({ success: true }),
   recordHeartbeatAction: vi.fn().mockResolvedValue({ success: true }),
 }));
-vi.mock("@/components/sophiia/HlsPlayer", () => ({
-  HlsPlayer: ({ src }: { src: string }) => <div data-testid="player" data-src={src} />,
-}));
+// Conta montagens do player: o bug era ele remontar (= vídeo volta ao
+// início) a cada clique na sidebar / troca de aba, porque o efeito de
+// setup dependia da identidade de onProgress/onEnded.
+const playerState = vi.hoisted(() => ({ mounts: 0 }));
+vi.mock("@/components/sophiia/HlsPlayer", async () => {
+  const { useEffect } = await vi.importActual<typeof import("react")>("react");
+  return {
+    HlsPlayer: ({ src }: { src: string }) => {
+      useEffect(() => {
+        playerState.mounts += 1;
+      }, []);
+      return <div data-testid="player" data-src={src} />;
+    },
+  };
+});
 vi.mock("@/components/notifications/ToastProvider", () => ({
   useToast: () => ({ showToast: vi.fn() }),
 }));
@@ -89,7 +101,10 @@ function renderClassroom() {
   );
 }
 
-afterEach(() => vi.clearAllMocks());
+afterEach(() => {
+  vi.clearAllMocks();
+  playerState.mounts = 0;
+});
 
 describe("ClassroomClient", () => {
   it("top bar mostra o curso e o progresso agregado", async () => {
@@ -133,6 +148,42 @@ describe("ClassroomClient", () => {
     );
     // agora há próxima
     expect(screen.getByRole("button", { name: "Próxima aula" })).toBeInTheDocument();
+  });
+
+  it("interações que não trocam de aula NÃO remontam o player (vídeo não reinicia)", async () => {
+    api.courseOutline.mockResolvedValue(OUTLINE);
+    api.listMyCourses.mockResolvedValue([COURSE]);
+    const user = userEvent.setup();
+    renderClassroom();
+
+    await screen.findByText("Curso de Teste");
+    const srcBefore = screen.getByTestId("player").getAttribute("data-src");
+    expect(playerState.mounts).toBe(1);
+
+    const aside = screen.getByRole("complementary");
+    await user.click(within(aside).getByText("Aula dois")); // clica na própria aula ativa
+    await user.click(screen.getByRole("button", { name: "Material de apoio" })); // troca de aba
+    await user.click(within(aside).getByText("Módulo 1")); // recolhe o módulo no accordion
+
+    expect(playerState.mounts).toBe(1);
+    expect(screen.getByTestId("player").getAttribute("data-src")).toBe(srcBefore);
+  });
+
+  it("trocar de aula remonta o player apontando pro novo vídeo", async () => {
+    api.courseOutline.mockResolvedValue(OUTLINE);
+    api.listMyCourses.mockResolvedValue([COURSE]);
+    const user = userEvent.setup();
+    renderClassroom();
+
+    await screen.findByText("Curso de Teste");
+    expect(playerState.mounts).toBe(1);
+
+    await user.click(within(screen.getByRole("complementary")).getByText("Aula um"));
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Aula um"),
+    );
+    expect(playerState.mounts).toBe(2);
+    expect(screen.getByTestId("player")).toHaveAttribute("data-src", expect.stringContaining("l1"));
   });
 
   it("alterna abas e mostra empty state em Material de apoio", async () => {

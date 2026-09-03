@@ -24,11 +24,25 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
   const [speed, setSpeed] = useState(1);
   const lastReport = useRef(0);
 
+  // Callbacks guardados em ref: a tela de aula re-renderiza o tempo todo
+  // (heartbeat, troca de aba, recolher a sidebar) e recria essas funções.
+  // Se elas entrassem nas deps do efeito de setup, cada re-render
+  // destruiria e recriaria o <video>/hls.js — o vídeo voltava ao início.
+  const onProgressRef = useRef(onProgress);
+  const onEndedRef = useRef(onEnded);
+  useEffect(() => {
+    onProgressRef.current = onProgress;
+    onEndedRef.current = onEnded;
+  });
+
+  // Só recarrega quando a fonte muda de verdade. Trocar de aula continua
+  // recriando o player pela `key={lesson.id}` no componente pai.
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !src) return;
 
     setError(null);
+    lastReport.current = 0;
     let destroyed = false;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let hls: any = null;
@@ -54,16 +68,17 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
     }
 
     function handleTimeUpdate() {
-      if (!video || !onProgress) return;
+      const report = onProgressRef.current;
+      if (!video || !report) return;
       const now = Date.now();
       if (now - lastReport.current >= 10_000) {
         lastReport.current = now;
-        onProgress(video.currentTime);
+        report(video.currentTime);
       }
     }
     function handleEnded() {
-      onProgress?.(video?.duration ?? 0);
-      onEnded?.();
+      onProgressRef.current?.(video?.duration ?? 0);
+      onEndedRef.current?.();
     }
 
     video.addEventListener("timeupdate", handleTimeUpdate);
@@ -75,7 +90,7 @@ export function HlsPlayer({ src, onProgress, onEnded, className }: HlsPlayerProp
       video.removeEventListener("ended", handleEnded);
       if (hls) hls.destroy();
     };
-  }, [src, onProgress, onEnded]);
+  }, [src]);
 
   const setPlaybackRate = useCallback((rate: number) => {
     setSpeed(rate);
