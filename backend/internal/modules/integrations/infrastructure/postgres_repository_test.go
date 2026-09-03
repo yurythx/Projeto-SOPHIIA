@@ -24,7 +24,8 @@ func testPool(t *testing.T) *pgxpool.Pool {
 	return pool
 }
 
-// Estes testes dependem da linha "example-integration" semeada pela migration 000006.
+// Estes testes dependem da linha "example-service" semeada pela migration
+// 000041 (que também removeu a antiga "diario-oficial").
 
 func TestPostgresRepository_List_IncludesSeeded(t *testing.T) {
 	pool := testPool(t)
@@ -37,12 +38,12 @@ func TestPostgresRepository_List_IncludesSeeded(t *testing.T) {
 
 	found := false
 	for _, i := range list {
-		if i.Key == "example-integration" {
+		if i.Key == "example-service" {
 			found = true
 		}
 	}
 	if !found {
-		t.Error("expected the seeded diario-oficial integration to be present")
+		t.Error("expected the seeded example-service integration to be present")
 	}
 }
 
@@ -52,7 +53,7 @@ func TestPostgresRepository_UpdateStatusTx_ReportsChange(t *testing.T) {
 	ctx := context.Background()
 
 	// Reseta para uma base conhecida, para que o teste independa da ordem.
-	_, err := pool.Exec(ctx, `UPDATE integrations SET status = 'unknown', last_error = NULL WHERE key = 'diario-oficial'`)
+	_, err := pool.Exec(ctx, `UPDATE integrations SET status = 'unknown', last_error = NULL WHERE key = 'example-service'`)
 	if err != nil {
 		t.Fatalf("reset baseline: %v", err)
 	}
@@ -61,8 +62,17 @@ func TestPostgresRepository_UpdateStatusTx_ReportsChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
+	// Sem isto, um t.Fatalf com a tx ainda aberta trava o pool.Close() do
+	// Cleanup até o timeout de 10 min do binário de teste. `tx` é
+	// reatribuída ao longo do teste; o defer fecha a que estiver aberta no
+	// momento da saída (Rollback após Commit/Rollback é no-op).
+	defer func() {
+		if tx != nil {
+			_ = tx.Rollback(ctx)
+		}
+	}()
 
-	updated, changed, err := repo.UpdateStatusTx(ctx, tx, "example-integration", true, nil)
+	updated, changed, err := repo.UpdateStatusTx(ctx, tx, "example-service", true, nil)
 	if err != nil {
 		t.Fatalf("UpdateStatusTx: %v", err)
 	}
@@ -84,7 +94,7 @@ func TestPostgresRepository_UpdateStatusTx_ReportsChange(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Begin: %v", err)
 	}
-	_, changedAgain, err := repo.UpdateStatusTx(ctx, tx, "example-integration", true, nil)
+	_, changedAgain, err := repo.UpdateStatusTx(ctx, tx, "example-service", true, nil)
 	if err != nil {
 		t.Fatalf("UpdateStatusTx (2nd): %v", err)
 	}
@@ -99,7 +109,7 @@ func TestPostgresRepository_UpdateStatusTx_ReportsChange(t *testing.T) {
 		t.Fatalf("Begin: %v", err)
 	}
 	errMsg := "connection timeout"
-	updated, changed, err = repo.UpdateStatusTx(ctx, tx, "example-integration", false, &errMsg)
+	updated, changed, err = repo.UpdateStatusTx(ctx, tx, "example-service", false, &errMsg)
 	if err != nil {
 		t.Fatalf("UpdateStatusTx (failure): %v", err)
 	}
