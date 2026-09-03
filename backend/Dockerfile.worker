@@ -13,7 +13,7 @@ COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/worker ./cmd/worker
 
 # ---- runtime ----
-FROM alpine:3.20 AS runtime
+FROM alpine:3.24 AS runtime
 
 # GIT_REVISION vem do docker-compose (build.args) / Makefile — rastreabilidade
 # imagem↔commit via label OCI + ENV APP_REVISION disponível ao processo.
