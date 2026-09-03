@@ -14,7 +14,7 @@ if [ $# -lt 1 ]; then
 fi
 
 MODULE_NAME=$(echo "$1" | tr '[:upper:]' '[:lower:]' | tr '-' '_')
-CAP_MODULE_NAME="$(tr '[:lower:]' '[:upper:]' <<< ${MODULE_NAME:0:1})${MODULE_NAME:1}"
+CAP_MODULE_NAME="$(tr '[:lower:]' '[:upper:]' <<< "${MODULE_NAME:0:1}")${MODULE_NAME:1}"
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 

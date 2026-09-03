@@ -160,6 +160,15 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ---------------------------------------------------------------------------
+  # ShellCheck nos scripts do repo (shellcheck vem pré-instalado no runner).
+  shellcheck:
+    name: shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck scripts/*.sh
+
+  # ---------------------------------------------------------------------------
   # Varreduras de vulnerabilidade — informativas (não bloqueiam o merge),
   # para o time acompanhar CVEs sem travar entregas numa dependência
   # transitiva que ainda não tem correção.

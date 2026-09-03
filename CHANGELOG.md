@@ -50,6 +50,8 @@ e-MAG/WCAG e VLibras). As entradas abaixo cobrem o que mudou desde então.
   descartável, migra e roda `go test ./... -p 1` contra ele; respeita
   `TEST_DATABASE_URL` quando já definida (CI). Evita a contaminação de rodar
   os testes live-DB contra o banco do `make dev-up`.
+- **ShellCheck** nos `scripts/*.sh` — gate bloqueante no CI (job `shellcheck`)
+  e hook de pre-commit.
 
 ### Alterado
 

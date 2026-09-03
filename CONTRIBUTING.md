@@ -41,6 +41,8 @@ Rode os mesmos gates do CI (`.github/workflows/ci.yml`):
 - **Go**: `gofmt` (obrigatório no CI). `go vet` limpo.
 - **TS/React**: ESLint + `tsc --noEmit` limpos. Prettier é gate bloqueante
   (`npm run format:check`); rode `npm run format` antes de commitar.
+- **Shell** (`scripts/*.sh`): `shellcheck` limpo (gate bloqueante no CI e
+  hook de pre-commit).
 - **Cor no frontend**: tudo sai dos tokens em `globals.css` — nunca hex
   solto num componente.
 
