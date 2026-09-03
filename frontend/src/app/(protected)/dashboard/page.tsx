@@ -18,6 +18,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import { authOptions } from "@/lib/auth/options";
 import { ApiError } from "@/lib/api/client";
@@ -124,32 +125,27 @@ export default async function DashboardOverviewPage() {
   return (
     <RoleGate allowedRoles={[SOPHIIA_ROLES.ADMIN]} showErrorPanel>
     <div className="flex flex-col gap-8 pb-10">
-      {/* Header Principal */}
-      <header className="flex flex-col gap-4 border-b border-surface-border pb-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex flex-col gap-1">
-          <span className="dateline">Projeto SOPHIIA · {competencia}</span>
-          <h1 className="text-3xl font-bold tracking-tight">
-            {firstName ? `Bem-vindo(a), ${firstName}` : "Visão geral"}
-          </h1>
-          <p className="text-sm text-muted">
-            Acompanhe a capacitação dos servidores, as integrações e a saúde da plataforma.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Link href="/portal">
-            <Button size="sm" className="gap-2">
-              <GraduationCap size={16} />
-              Ir para o Portal
-            </Button>
-          </Link>
-          <Link href="/configuracao">
-            <Button size="sm" variant="secondary" className="gap-2">
-              <Settings size={16} />
-              Configurações
-            </Button>
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        eyebrow={`Projeto SOPHIIA · ${competencia}`}
+        title={firstName ? `Bem-vindo(a), ${firstName}` : "Visão geral"}
+        subtitle="Acompanhe a capacitação dos servidores, as integrações e a saúde da plataforma."
+        actions={
+          <>
+            <Link href="/portal">
+              <Button size="sm" className="gap-2">
+                <GraduationCap size={16} />
+                Ir para o Portal
+              </Button>
+            </Link>
+            <Link href="/configuracao">
+              <Button size="sm" variant="secondary" className="gap-2">
+                <Settings size={16} />
+                Configurações
+              </Button>
+            </Link>
+          </>
+        }
+      />
 
       {/* Indicadores da plataforma */}
       <section className="flex flex-col gap-3">

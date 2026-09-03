@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 
 import { ErrorState } from "@/components/ui/ErrorState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
 import { integrationRegistry } from "@/lib/integrations/registry";
 import { ApiError } from "@/lib/api/client";
@@ -38,14 +39,14 @@ export default async function IntegrationDetailPage({
 
       {integration && (
         <>
-          <div>
-            <p className="dateline">Integração</p>
-            <h1 className="mt-2 text-2xl font-semibold">{integration.name}</h1>
-            <p className="mt-1 text-sm text-muted">
-              {registryEntry?.description ??
-                "Configuração e teste de conectividade desta integração."}
-            </p>
-          </div>
+          <PageHeader
+            eyebrow="Integração"
+            title={integration.name}
+            subtitle={
+              registryEntry?.description ??
+              "Configuração e teste de conectividade desta integração."
+            }
+          />
 
           <IntegrationCard integration={integration} testPath={registryEntry?.testPath} />
         </>

@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Plus, RefreshCw, Box, AlertCircle } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { apiClient } from "@/lib/api/client";
 import { Skeleton } from "@/components/ui/Skeleton";
 
@@ -51,15 +52,11 @@ export default function ExemplosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Módulo Modelo (Exemplo Blueprint)
-        </h1>
-        <p className="text-sm text-muted">
-          Página de referência demonstrando consumo REST tipado, gerenciamento de estado e
-          integração com o backend do Projeto SOPHIIA.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Referência para novos módulos"
+        title="Módulo Modelo (Exemplo Blueprint)"
+        subtitle="Página de referência demonstrando consumo REST tipado, gerenciamento de estado e integração com o backend do Projeto SOPHIIA."
+      />
 
       {/* Formulário de Criação */}
       <div className="rounded-xl border border-surface-border bg-surface p-6 shadow-sm">

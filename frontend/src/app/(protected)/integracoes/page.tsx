@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { IntegrationCard } from "@/components/integrations/IntegrationCard";
 import { ApiError } from "@/lib/api/client";
 import { serverApiGet } from "@/lib/api/server";
@@ -28,13 +29,11 @@ export default async function IntegracoesPage() {
   return (
     <RoleGate allowedRoles={[SOPHIIA_ROLES.ADMIN, SOPHIIA_ROLES.INTEGRATION_MANAGER, SOPHIIA_ROLES.AUDITOR]} showErrorPanel>
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="dateline">Sistemas externos</p>
-        <h1 className="mt-2 text-2xl font-semibold">Integrações</h1>
-        <p className="mt-1 text-sm text-muted">
-          Sistemas aos quais o Projeto SOPHIIA se conecta — clique em um para configurar e testar.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Sistemas externos"
+        title="Integrações"
+        subtitle="Sistemas aos quais o Projeto SOPHIIA se conecta — clique em um para configurar e testar."
+      />
 
       {errorMessage && <ErrorState message={errorMessage} />}
 

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { PageHeader } from "@/components/ui/PageHeader";
+
 // Sub-navegação de /configuracao: Sistema (index, feature flags) e
 // Usuários. Integrações teve um menu próprio na barra lateral (§
 // Integrações como menu próprio) — deixou de ser uma aba daqui porque
@@ -21,15 +23,13 @@ export default function ConfiguracaoLayout({ children }: { children: ReactNode }
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="dateline">Administração do sistema</p>
-        <h1 className="mt-2 text-2xl font-semibold">Configurações</h1>
-        <p className="mt-1 text-sm text-muted">
-          Identidade visual da instituição, módulos ativos e contas de usuário.
-        </p>
-      </div>
+      <PageHeader
+        eyebrow="Administração do sistema"
+        title="Configurações"
+        subtitle="Identidade visual da instituição, módulos ativos e contas de usuário."
+      />
 
-      <nav aria-label="Configurações" className="border-b border-surface-border">
+      <nav aria-label="Configurações" className="-mt-2 border-b border-surface-border">
         <ul className="-mb-px flex gap-4">
           {tabs.map((tab) => {
             // Só /configuracao (o índice) precisa de match exato — as

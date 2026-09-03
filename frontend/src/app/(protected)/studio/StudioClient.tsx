@@ -8,6 +8,7 @@ import { Clock, FolderPlus, Search, Video } from "lucide-react";
 
 import { CatalogWizard } from "@/components/sophiia/CatalogWizard";
 import { CourseCover } from "@/components/sophiia/CourseCover";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { sophiiaApi, type AdminCourseItem } from "@/lib/api/sophiia";
 
 type StatusFilter = "all" | "published" | "draft";
@@ -47,23 +48,20 @@ export function StudioClient() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-surface-border pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Studio do Instrutor</h1>
-          <p className="text-sm text-muted">
-            Seus cursos de capacitação. Abra um curso para enviar as videoaulas e acompanhar a
-            transcodificação.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setCreating((v) => !v)}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-        >
-          <FolderPlus className="h-4 w-4" />
-          {creating ? "Fechar" : "Novo curso"}
-        </button>
-      </header>
+      <PageHeader
+        title="Studio do Instrutor"
+        subtitle="Seus cursos de capacitação. Abra um curso para enviar as videoaulas e acompanhar a transcodificação."
+        actions={
+          <button
+            type="button"
+            onClick={() => setCreating((v) => !v)}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <FolderPlus className="h-4 w-4" />
+            {creating ? "Fechar" : "Novo curso"}
+          </button>
+        }
+      />
 
       {creating && (
         <CatalogWizard

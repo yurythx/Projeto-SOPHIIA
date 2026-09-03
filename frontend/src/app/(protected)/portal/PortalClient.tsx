@@ -5,6 +5,7 @@ import useSWR from "swr";
 import { Award, Download, Search, ShieldCheck } from "lucide-react";
 
 import { CourseCard } from "@/components/sophiia/CourseCard";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { sophiiaApi } from "@/lib/api/sophiia";
 
 type StatusFilter = "all" | "in_progress" | "completed";
@@ -47,29 +48,28 @@ export function PortalClient() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-col gap-4 border-b border-surface-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Meus Cursos</h1>
-          <p className="text-sm text-muted">
-            Capacitação contínua dos sistemas municipais — assista às videoaulas e emita seus
-            certificados.
-          </p>
-        </div>
-        <div className="flex items-center gap-1 rounded-lg bg-surface-border/30 p-1">
-          {(["catalog", "certificates"] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === t ? "bg-primary text-primary-foreground" : "text-muted hover:text-foreground"
-              }`}
-            >
-              {t === "catalog" ? "Catálogo" : "Certificados"}
-            </button>
-          ))}
-        </div>
-      </header>
+      <PageHeader
+        title="Meus Cursos"
+        subtitle="Capacitação contínua dos sistemas municipais — assista às videoaulas e emita seus certificados."
+        actions={
+          <div className="flex items-center gap-1 rounded-lg bg-surface-border/30 p-1">
+            {(["catalog", "certificates"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setTab(t)}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  tab === t
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted hover:text-foreground"
+                }`}
+              >
+                {t === "catalog" ? "Catálogo" : "Certificados"}
+              </button>
+            ))}
+          </div>
+        }
+      />
 
       {tab === "catalog" && (
         <>

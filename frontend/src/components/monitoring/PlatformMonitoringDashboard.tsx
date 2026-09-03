@@ -21,6 +21,7 @@ import {
 
 import { Button } from "@/components/ui/Button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusIndicator } from "@/components/ui/StatusIndicator";
 import type { IntegrationStatus } from "@/types/api";
 import { apiClient } from "@/lib/api/client";
@@ -151,41 +152,34 @@ export function PlatformMonitoringDashboard() {
 
   return (
     <div className="flex flex-col gap-8 pb-10">
-      {/* Header Principal */}
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between border-b border-surface-border pb-6">
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <span className="dateline">Telemetria & Infraestrutura</span>
+      <PageHeader
+        eyebrow="Telemetria & Infraestrutura"
+        title="Monitoramento da Plataforma"
+        subtitle="Status dos microsserviços, barramento de eventos Outbox e saúde dos componentes em tempo real."
+        actions={
+          <>
             <span
               className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                isHealthy ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                isHealthy ? "bg-success/10 text-success-strong" : "bg-warning/10 text-warning-strong"
               }`}
             >
               {isHealthy ? <CheckCircle2 size={12} /> : <AlertTriangle size={12} />}
               {isHealthy ? "SISTEMA OPERACIONAL" : "ATENÇÃO"}
             </span>
-          </div>
-          <h1 className="text-3xl font-bold tracking-tight">Monitoramento da Plataforma</h1>
-          <p className="text-sm text-muted">
-            Status dos microsserviços, barramento de eventos Outbox e saúdes dos componentes em
-            tempo real.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted">Atualizado às {lastCheckTime}</span>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleRefresh}
-            disabled={isValidating}
-            className="gap-2"
-          >
-            <RefreshCw size={14} className={isValidating ? "animate-spin" : ""} />
-            Atualizar
-          </Button>
-        </div>
-      </header>
+            <span className="text-xs text-muted">Atualizado às {lastCheckTime}</span>
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleRefresh}
+              disabled={isValidating}
+              className="gap-2"
+            >
+              <RefreshCw size={14} className={isValidating ? "animate-spin" : ""} />
+              Atualizar
+            </Button>
+          </>
+        }
+      />
 
       {/* KPI Cards de Performance */}
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
